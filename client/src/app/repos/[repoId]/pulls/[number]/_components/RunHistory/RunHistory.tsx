@@ -148,7 +148,6 @@ export function RunHistory({
 
         const r = item.run;
         const o = outcomeOf(r);
-        const tok = (r.tokens_in ?? 0) + (r.tokens_out ?? 0);
         const settled = r.status === "done";
         return (
           <div key={`run:${r.run_id}`} style={rowStyle}>
@@ -198,11 +197,6 @@ export function RunHistory({
             </div>
             <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2, fontSize: 11, color: "var(--text-muted)", flexShrink: 0 }}>
               {r.ran_at && <span>{new Date(r.ran_at).toLocaleTimeString()}</span>}
-              {tok > 0 && (
-                <span className="mono">
-                  {tok} tok{r.cost_usd != null ? ` · $${r.cost_usd.toFixed(4)}` : ""}
-                </span>
-              )}
             </div>
             <button
               type="button"
