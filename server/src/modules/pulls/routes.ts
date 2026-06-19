@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
-import { and, desc, eq, inArray } from 'drizzle-orm';
+import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import type { PrMeta, PrDetail, GitHubClient, PrReviewComment } from '@devdigest/shared';
 import { PrCommentInput } from '@devdigest/shared';
 import * as t from '../../db/schema.js';
@@ -111,12 +111,15 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
       }
     }
 
-    // Latest-review SCORE per PR for the list's score ring. Computed on read
-    // from reviews (no FK denorm); the list is small, so one IN-query + JS
-    // grouping is cheap. (The per-severity FINDINGS breakdown is intentionally
-    // not surfaced on the list — findings live on the PR detail page.)
+    // Per-PR aggregates, computed on read (the list is small, so a couple of
+    // grouped queries are cheap):
+    //   SCORE = the latest review's score.
+    //   COST  = TOTAL spend across ALL of a PR's runs (each run's individual
+    //           cost is shown in the run timeline / trace). Null when no run has
+    //           priced usage → the UI renders "—".
     const prIds = rows.map((r) => r.id);
-    const latestReviewByPr = new Map<string, { score: number | null }>();
+    const latestScoreByPr = new Map<string, number | null>();
+    const costByPr = new Map<string, number | null>();
     if (prIds.length > 0) {
       const reviewRows = await container.db
         .select({ prId: t.reviews.prId, score: t.reviews.score })
@@ -125,13 +128,24 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
         .orderBy(desc(t.reviews.createdAt));
       // Rows are newest-first → first seen per PR is the latest review.
       for (const rv of reviewRows) {
-        if (!latestReviewByPr.has(rv.prId)) latestReviewByPr.set(rv.prId, { score: rv.score });
+        if (!latestScoreByPr.has(rv.prId)) latestScoreByPr.set(rv.prId, rv.score);
+      }
+
+      const costRows = await container.db
+        .select({
+          prId: t.agentRuns.prId,
+          total: sql<number | null>`sum(${t.agentRuns.costUsd})`,
+        })
+        .from(t.agentRuns)
+        .where(and(eq(t.agentRuns.workspaceId, workspaceId), inArray(t.agentRuns.prId, prIds)))
+        .groupBy(t.agentRuns.prId);
+      for (const c of costRows) {
+        if (c.prId) costByPr.set(c.prId, c.total == null ? null : Number(c.total));
       }
     }
 
     const now = Date.now();
     return rows.map((r) => {
-      const review = latestReviewByPr.get(r.id);
       return {
         id: r.id,
         number: r.number,
@@ -152,7 +166,8 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
         }),
         opened_at: r.openedAt?.toISOString() ?? null,
         updated_at: r.updatedAt?.toISOString() ?? null,
-        score: review ? review.score : null,
+        score: latestScoreByPr.get(r.id) ?? null,
+        cost_usd: costByPr.get(r.id) ?? null,
       };
     });
   });

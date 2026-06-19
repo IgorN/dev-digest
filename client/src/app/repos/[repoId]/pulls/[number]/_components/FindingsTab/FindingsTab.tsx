@@ -67,6 +67,12 @@ export function FindingsTab({
   // opens + scrolls to that run's accordion below. The nonce re-triggers the
   // scroll even when the same run is clicked twice.
   const [target, setTarget] = React.useState<{ runId: string; n: number } | null>(null);
+
+  const runSummaryByRunId = React.useMemo(() => {
+    const m = new Map<string, RunSummary>();
+    for (const r of prRuns ?? []) m.set(r.run_id, r);
+    return m;
+  }, [prRuns]);
   const handleGoToReview = useCallback((runId: string) => {
     setTarget((p) => ({ runId, n: (p?.n ?? 0) + 1 }));
   }, []);
@@ -164,6 +170,7 @@ export function FindingsTab({
             headSha={headSha}
             targetRunId={target?.runId ?? null}
             targetNonce={target?.n ?? 0}
+            runSummary={review.run_id ? (runSummaryByRunId.get(review.run_id) ?? null) : null}
           />
         ))
       )}
