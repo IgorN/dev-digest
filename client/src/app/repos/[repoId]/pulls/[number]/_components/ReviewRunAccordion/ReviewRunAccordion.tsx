@@ -33,6 +33,7 @@ export function ReviewRunAccordion({
   targetRunId = null,
   targetNonce = 0,
   runSummary,
+  severityFilter = null,
 }: {
   review: ReviewRecord;
   prId: string;
@@ -45,6 +46,8 @@ export function ReviewRunAccordion({
   targetNonce?: number;
   /** RunSummary for this review's run — provides cost/token data for the badge. */
   runSummary?: RunSummary | null;
+  /** PR-page severity filter — forwarded to FindingsPanel (null = show all). */
+  severityFilter?: string | null;
 }) {
   const [open, setOpen] = React.useState(defaultOpen);
   const rootRef = React.useRef<HTMLDivElement | null>(null);
@@ -164,6 +167,7 @@ export function ReviewRunAccordion({
             prId={prId}
             repoFullName={repoFullName}
             headSha={headSha}
+            severityFilter={severityFilter}
           />
         </div>
       )}

@@ -1,13 +1,16 @@
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
-import { and, desc, eq, inArray, sql } from 'drizzle-orm';
-import type { PrMeta, PrDetail, GitHubClient, PrReviewComment } from '@devdigest/shared';
+import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
+import type { PrMeta, PrDetail, GitHubClient, PrReviewComment, Finding } from '@devdigest/shared';
 import { PrCommentInput } from '@devdigest/shared';
 import * as t from '../../db/schema.js';
 import { getContext } from '../_shared/context.js';
 import { IdParams } from '../_shared/schemas.js';
 import { AppError, NotFoundError } from '../../platform/errors.js';
-import { deriveReviewStatus } from './status.js';
+import { deriveReviewStatus, rollupSeverities, latestReviewsPerAgent, type SeverityCounts } from './status.js';
+
+/** Cap on findings embedded per PR in the list (powers the FINDINGS tooltip). */
+const FINDINGS_PREVIEW_CAP = 50;
 
 /**
  * F1 — pulls module. PR import via Octokit (list + per-PR detail).
@@ -111,24 +114,83 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
       }
     }
 
-    // Per-PR aggregates, computed on read (the list is small, so a couple of
-    // grouped queries are cheap):
-    //   SCORE = the latest review's score.
+    // Per-PR aggregates, computed on read (the list is small, so a few grouped
+    // queries are cheap):
+    //   SCORE = the latest review's score (newest review overall).
     //   COST  = TOTAL spend across ALL of a PR's runs (each run's individual
     //           cost is shown in the run timeline / trace). Null when no run has
     //           priced usage → the UI renders "—".
+    //   FINDINGS = union of the LATEST review PER AGENT — so every agent that ran
+    //           is represented, but re-running an agent supersedes its previous
+    //           review (no stale/duplicate findings from the same agent) —
+    //           excluding dismissed findings. Broken down by severity for the
+    //           FINDINGS column + a capped preview for its hover tooltip.
     const prIds = rows.map((r) => r.id);
-    const latestScoreByPr = new Map<string, number | null>();
+    const latestReviewByPr = new Map<string, { score: number | null }>();
+    const sevByPr = new Map<string, SeverityCounts>();
+    const findingsByPr = new Map<string, Finding[]>();
     const costByPr = new Map<string, number | null>();
     if (prIds.length > 0) {
       const reviewRows = await container.db
-        .select({ prId: t.reviews.prId, score: t.reviews.score })
+        .select({
+          id: t.reviews.id,
+          prId: t.reviews.prId,
+          agentId: t.reviews.agentId,
+          runId: t.reviews.runId,
+          score: t.reviews.score,
+        })
         .from(t.reviews)
         .where(and(inArray(t.reviews.prId, prIds), eq(t.reviews.kind, 'review')))
         .orderBy(desc(t.reviews.createdAt));
-      // Rows are newest-first → first seen per PR is the latest review.
+
+      // Group reviews per PR (preserving the query's newest-first order). Per
+      // PR: [0] is the latest review (drives SCORE); the newest review of each
+      // agent (latestReviewsPerAgent) feeds the FINDINGS union.
+      const reviewsByPr = new Map<string, typeof reviewRows>();
       for (const rv of reviewRows) {
-        if (!latestScoreByPr.has(rv.prId)) latestScoreByPr.set(rv.prId, rv.score);
+        (reviewsByPr.get(rv.prId) ?? reviewsByPr.set(rv.prId, []).get(rv.prId)!).push(rv);
+      }
+      const reviewIdToPr = new Map<string, string>();
+      for (const [prId, revs] of reviewsByPr) {
+        latestReviewByPr.set(prId, { score: revs[0]!.score });
+        for (const rv of latestReviewsPerAgent(revs)) reviewIdToPr.set(rv.id, prId);
+      }
+
+      const reviewIds = [...reviewIdToPr.keys()];
+      if (reviewIds.length > 0) {
+        const findingRows = await container.db
+          .select()
+          .from(t.findings)
+          .where(and(inArray(t.findings.reviewId, reviewIds), isNull(t.findings.dismissedAt)));
+        const byPr = new Map<string, typeof findingRows>();
+        for (const f of findingRows) {
+          const prId = reviewIdToPr.get(f.reviewId);
+          if (!prId) continue;
+          (byPr.get(prId) ?? byPr.set(prId, []).get(prId)!).push(f);
+        }
+        for (const [prId, fs] of byPr) {
+          sevByPr.set(prId, rollupSeverities(fs));
+          findingsByPr.set(
+            prId,
+            fs.slice(0, FINDINGS_PREVIEW_CAP).map(
+              (f): Finding => ({
+                id: f.id,
+                severity: f.severity as Finding['severity'],
+                category: f.category as Finding['category'],
+                title: f.title,
+                file: f.file,
+                start_line: f.startLine,
+                end_line: f.endLine,
+                rationale: f.rationale,
+                suggestion: f.suggestion ?? null,
+                confidence: f.confidence,
+                kind: f.kind as Finding['kind'],
+                trifecta_components: (f.trifectaComponents ?? null) as Finding['trifecta_components'],
+                evidence: null,
+              }),
+            ),
+          );
+        }
       }
 
       const costRows = await container.db
@@ -166,8 +228,12 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
         }),
         opened_at: r.openedAt?.toISOString() ?? null,
         updated_at: r.updatedAt?.toISOString() ?? null,
-        score: latestScoreByPr.get(r.id) ?? null,
+        score: latestReviewByPr.get(r.id)?.score ?? null,
         cost_usd: costByPr.get(r.id) ?? null,
+        findings_critical: latestReviewByPr.has(r.id) ? (sevByPr.get(r.id)?.critical ?? 0) : null,
+        findings_warning: latestReviewByPr.has(r.id) ? (sevByPr.get(r.id)?.warning ?? 0) : null,
+        findings_suggestion: latestReviewByPr.has(r.id) ? (sevByPr.get(r.id)?.suggestion ?? 0) : null,
+        findings: latestReviewByPr.has(r.id) ? (findingsByPr.get(r.id) ?? []) : null,
       };
     });
   });

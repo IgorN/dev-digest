@@ -31,6 +31,27 @@ export function rollupSeverities(rows: { severity: string }[]): SeverityCounts {
 }
 
 /**
+ * From one PR's reviews ordered NEWEST-FIRST, keep only the newest review per
+ * agent. Re-running an agent supersedes its earlier review, so the PR-list
+ * FINDINGS rollup never double-counts an agent or shows its stale findings, yet
+ * still covers every agent that ran. Reviews with no `agentId` fall back to
+ * `runId`, then review `id`, so each unattributed run stands on its own.
+ */
+export function latestReviewsPerAgent<
+  T extends { id: string; agentId: string | null; runId: string | null },
+>(reviewsNewestFirst: T[]): T[] {
+  const seen = new Set<string>();
+  const kept: T[] = [];
+  for (const rv of reviewsNewestFirst) {
+    const key = rv.agentId ?? rv.runId ?? rv.id;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    kept.push(rv);
+  }
+  return kept;
+}
+
+/**
  * Review-freshness status for the PR list. Merged/closed PRs keep their GitHub
  * merge state; open PRs map to:
  *  - `needs_review` — never reviewed, OR head moved since the last review
