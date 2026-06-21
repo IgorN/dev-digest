@@ -157,6 +157,8 @@ export class ReviewRepository {
       tokensOut: number;
       findingsCount: number;
       grounding: string;
+      /** USD cost of the LLM call(s); null when provider doesn't expose usage. */
+      costUsd?: number | null;
       /** Review score (0-100); null on failed/cancelled runs. */
       score?: number | null;
       /** Findings that tripped the agent's gate; 0 on failed/cancelled runs. */

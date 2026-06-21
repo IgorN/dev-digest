@@ -6,7 +6,12 @@
  * + age, so it gets unit coverage independent of the route's queries.
  */
 import { describe, it, expect } from 'vitest';
-import { deriveReviewStatus, rollupSeverities, STALE_DAYS } from '../src/modules/pulls/status.js';
+import {
+  deriveReviewStatus,
+  rollupSeverities,
+  latestReviewsPerAgent,
+  STALE_DAYS,
+} from '../src/modules/pulls/status.js';
 
 const DAY = 86_400_000;
 const now = Date.UTC(2026, 5, 11);
@@ -64,5 +69,34 @@ describe('rollupSeverities', () => {
 
   it('is all-zero for no findings', () => {
     expect(rollupSeverities([])).toEqual({ critical: 0, warning: 0, suggestion: 0 });
+  });
+});
+
+describe('latestReviewsPerAgent', () => {
+  it('keeps only the newest review per agent — a re-run supersedes the old one', () => {
+    // newest-first: Security re-ran (r3) after r1; Perf ran once (r2).
+    const kept = latestReviewsPerAgent([
+      { id: 'r3', agentId: 'security', runId: 'run3' },
+      { id: 'r2', agentId: 'perf', runId: 'run2' },
+      { id: 'r1', agentId: 'security', runId: 'run1' },
+    ]);
+    expect(kept.map((r) => r.id)).toEqual(['r3', 'r2']); // r1 (stale Security) dropped
+  });
+
+  it('covers every distinct agent that ran', () => {
+    const kept = latestReviewsPerAgent([
+      { id: 'a', agentId: 'security', runId: null },
+      { id: 'b', agentId: 'perf', runId: null },
+      { id: 'c', agentId: 'general', runId: null },
+    ]);
+    expect(kept.map((r) => r.id)).toEqual(['a', 'b', 'c']);
+  });
+
+  it('treats reviews with no agentId as independent (falls back to runId)', () => {
+    const kept = latestReviewsPerAgent([
+      { id: 'r2', agentId: null, runId: 'run2' },
+      { id: 'r1', agentId: null, runId: 'run1' },
+    ]);
+    expect(kept.map((r) => r.id)).toEqual(['r2', 'r1']); // distinct runIds → both kept
   });
 });

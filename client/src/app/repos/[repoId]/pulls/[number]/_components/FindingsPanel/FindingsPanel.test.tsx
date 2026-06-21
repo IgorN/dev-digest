@@ -52,4 +52,14 @@ describe("FindingsPanel (smoke)", () => {
     renderWithIntl(<FindingsPanel findings={[]} prId="pr1" />);
     expect(screen.getByText("No findings match")).toBeInTheDocument();
   });
+
+  it("severityFilter keeps only findings of the selected severity", () => {
+    const findings: FindingRecord[] = [
+      FINDINGS[0]!, // CRITICAL "Hardcoded secret"
+      { ...FINDINGS[0]!, id: "f2", severity: "WARNING", title: "Slow query" },
+    ];
+    renderWithIntl(<FindingsPanel findings={findings} prId="pr1" severityFilter="CRITICAL" />);
+    expect(screen.getByText("Hardcoded secret")).toBeInTheDocument();
+    expect(screen.queryByText("Slow query")).not.toBeInTheDocument();
+  });
 });

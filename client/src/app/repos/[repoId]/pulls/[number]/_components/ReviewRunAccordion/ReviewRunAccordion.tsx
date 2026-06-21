@@ -7,9 +7,10 @@
 
 import React from "react";
 import { Icon, Badge } from "@devdigest/ui";
-import type { ReviewRecord, Verdict } from "@devdigest/shared";
+import type { ReviewRecord, RunSummary, Verdict } from "@devdigest/shared";
 import { FindingsPanel } from "../FindingsPanel";
 import { VerdictBanner } from "../VerdictBanner";
+import { RunCostBadge } from "@/components/RunCostBadge";
 import { useDeleteReview } from "../../../../../../../lib/hooks/reviews";
 
 const VERDICT_COLOR: Record<string, string> = {
@@ -31,6 +32,8 @@ export function ReviewRunAccordion({
   headSha,
   targetRunId = null,
   targetNonce = 0,
+  runSummary,
+  severityFilter = null,
 }: {
   review: ReviewRecord;
   prId: string;
@@ -41,6 +44,10 @@ export function ReviewRunAccordion({
    *  (driven from the Timeline: clicking an agent name navigates here). */
   targetRunId?: string | null;
   targetNonce?: number;
+  /** RunSummary for this review's run — provides cost/token data for the badge. */
+  runSummary?: RunSummary | null;
+  /** PR-page severity filter — forwarded to FindingsPanel (null = show all). */
+  severityFilter?: string | null;
 }) {
   const [open, setOpen] = React.useState(defaultOpen);
   const rootRef = React.useRef<HTMLDivElement | null>(null);
@@ -98,6 +105,14 @@ export function ReviewRunAccordion({
           {blockers > 0 ? ` · ${blockers} blocker${blockers === 1 ? "" : "s"}` : ""}
         </span>
         <span style={{ flex: 1 }} />
+        {runSummary && (
+          <RunCostBadge
+            costUsd={runSummary.cost_usd}
+            tokensIn={runSummary.tokens_in}
+            tokensOut={runSummary.tokens_out}
+            variant="full"
+          />
+        )}
         {review.score != null && (
           <Badge mono color="var(--text-secondary)">
             {review.score}
@@ -152,6 +167,7 @@ export function ReviewRunAccordion({
             prId={prId}
             repoFullName={repoFullName}
             headSha={headSha}
+            severityFilter={severityFilter}
           />
         </div>
       )}

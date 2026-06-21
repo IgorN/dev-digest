@@ -26,3 +26,6 @@ export function formatSeconds(ms: number): string {
 export function formatTokens(tokensIn: number, tokensOut: number): string {
   return `${(tokensIn / 1000).toFixed(0)}k→${(tokensOut / 1000).toFixed(1)}k`;
 }
+
+/** Shared USD cost formatter (kept identical to the badge — single source of truth). */
+export { formatCost } from "@/lib/cost";

@@ -1,10 +1,11 @@
 "use client";
 
 import React, { useCallback } from "react";
-import { Icon, Badge, Button, SectionLabel, EmptyState } from "@devdigest/ui";
+import { Icon, Badge, Button, SectionLabel, EmptyState, type Severity } from "@devdigest/ui";
 import { RunStatus } from "../RunStatus";
 import { RunHistory } from "../RunHistory/RunHistory";
 import { ReviewRunAccordion } from "../ReviewRunAccordion";
+import { SeverityFilter } from "../SeverityFilter";
 import { s } from "./styles";
 import type { FindingRecord, ReviewRecord, RunSummary, PrCommit } from "@devdigest/shared";
 import type { UseMutationResult } from "@tanstack/react-query";
@@ -67,9 +68,40 @@ export function FindingsTab({
   // opens + scrolls to that run's accordion below. The nonce re-triggers the
   // scroll even when the same run is clicked twice.
   const [target, setTarget] = React.useState<{ runId: string; n: number } | null>(null);
+
+  const runSummaryByRunId = React.useMemo(() => {
+    const m = new Map<string, RunSummary>();
+    for (const r of prRuns ?? []) m.set(r.run_id, r);
+    return m;
+  }, [prRuns]);
+
+  // Per-run findings (keyed by run_id) — drives the timeline's per-run severity
+  // counts + tooltip. Sourced from the already-loaded review records.
+  const findingsByRunId = React.useMemo(() => {
+    const m = new Map<string, FindingRecord[]>();
+    for (const r of runs) if (r.run_id) m.set(r.run_id, r.findings);
+    return m;
+  }, [runs]);
   const handleGoToReview = useCallback((runId: string) => {
     setTarget((p) => ({ runId, n: (p?.n ?? 0) + 1 }));
   }, []);
+
+  // Findings-by-severity: counts across all runs + a click-to-filter on the bar.
+  const [activeSeverity, setActiveSeverity] = React.useState<Severity | null>(null);
+  const severityCounts = React.useMemo(() => {
+    const c: Record<string, number> = {};
+    for (const r of runs) for (const f of r.findings) c[f.severity] = (c[f.severity] ?? 0) + 1;
+    return c;
+  }, [runs]);
+  // When a severity is active, hide runs with no matching finding so the page
+  // shows only the selected level's findings.
+  const visibleRuns = React.useMemo(
+    () =>
+      activeSeverity
+        ? runs.filter((r) => r.findings.some((f) => f.severity === activeSeverity))
+        : runs,
+    [runs, activeSeverity],
+  );
 
   return (
     <section>
@@ -134,6 +166,7 @@ export function FindingsTab({
             onOpenTrace={handleOpenTrace}
             onGoToReview={handleGoToReview}
             onDelete={handleDelete}
+            findingsByRunId={findingsByRunId}
           />
         </div>
       )}
@@ -144,6 +177,7 @@ export function FindingsTab({
       >
         Review runs
       </SectionLabel>
+      <SeverityFilter counts={severityCounts} active={activeSeverity} onSelect={setActiveSeverity} />
       {runs.length === 0 ? (
         reviewRunning || liveRunIds.length > 0 ? null : (
           <EmptyState
@@ -154,7 +188,7 @@ export function FindingsTab({
         )
       ) : (
         prId &&
-        runs.map((review, i) => (
+        visibleRuns.map((review, i) => (
           <ReviewRunAccordion
             key={review.id}
             review={review}
@@ -164,6 +198,8 @@ export function FindingsTab({
             headSha={headSha}
             targetRunId={target?.runId ?? null}
             targetNonce={target?.n ?? 0}
+            runSummary={review.run_id ? (runSummaryByRunId.get(review.run_id) ?? null) : null}
+            severityFilter={activeSeverity}
           />
         ))
       )}

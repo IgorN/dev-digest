@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Icon, Avatar, Badge, CircularScore } from "@devdigest/ui";
 import type { PrMeta } from "@/lib/types";
+import { RunCostBadge } from "@/components/RunCostBadge";
+import { FindingsSummary } from "@/components/FindingsSummary";
 import { SIZE_COLOR, STATUS_META } from "../../constants";
 import { relativeTime, sizeOf } from "../../helpers";
 import { s } from "../../styles";
@@ -53,10 +55,23 @@ export function PRRow({ pr, repoId }: { pr: PrMeta; repoId: string }) {
           <span style={s.muted}>—</span>
         )}
       </div>
+      <div style={s.findingsCell}>
+        <FindingsSummary
+          counts={{
+            CRITICAL: pr.findings_critical ?? 0,
+            WARNING: pr.findings_warning ?? 0,
+            SUGGESTION: pr.findings_suggestion ?? 0,
+          }}
+          findings={pr.findings ?? []}
+        />
+      </div>
       <div>
         <Badge dot color={st.c} bg="transparent">
           {t(`list.status.${st.labelKey}`)}
         </Badge>
+      </div>
+      <div style={s.costCell}>
+        <RunCostBadge costUsd={pr.cost_usd} variant="compact" />
       </div>
       <div style={s.updatedCell}>{relativeTime(pr.updated_at)}</div>
     </div>
