@@ -182,13 +182,22 @@ export const SkillImportPreview = z.object({
 export type SkillImportPreview = z.infer<typeof SkillImportPreview>;
 
 // ---- Conventions ----
+// A candidate house-rule the extractor proposes from real repo code. Each one is
+// evidence-backed (a file + verified line range) and shown for accept/reject;
+// accepted ones merge into the `repo-conventions` skill. `accepted` is null while
+// undecided. `evidence_url` is the clickable GitHub blob deep-link (server-built).
 export const ConventionCandidate = z.object({
   id: z.string(),
+  repo_id: z.string().nullish(),
+  category: z.string().nullish(),
   rule: z.string(),
   evidence_path: z.string(),
   evidence_snippet: z.string(),
+  evidence_start_line: z.number().int().nullish(),
+  evidence_end_line: z.number().int().nullish(),
+  evidence_url: z.string().nullish(),
   confidence: z.number().min(0).max(1),
-  accepted: z.boolean(),
+  accepted: z.boolean().nullish(),
 });
 export type ConventionCandidate = z.infer<typeof ConventionCandidate>;
 

@@ -224,6 +224,9 @@ export interface GitClient {
   blame(repo: RepoRef, path: string): Promise<BlameLine[]>;
   log(repo: RepoRef, path?: string): Promise<GitCommit[]>;
   readFile(repo: RepoRef, path: string): Promise<string>;
+  /** Tracked file paths in the working tree (`git ls-files`) — honors
+   *  `.gitignore` for free, so no node_modules/build output. */
+  listFiles(repo: RepoRef): Promise<string[]>;
   clonePathFor(repo: RepoRef): string;
 }
 
