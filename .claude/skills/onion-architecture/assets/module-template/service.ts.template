@@ -1,0 +1,41 @@
+import type { Container } from '../../platform/container.js';
+import { NotFoundError } from '../../platform/errors.js';
+import { ExampleRepository, type ExampleRow } from './repository.js';
+import { toExampleDto } from './helpers.js';
+// import { SOME_JOB_KIND } from './constants.js';
+
+/**
+ * <name> service — APPLICATION ring. Business decisions + orchestration.
+ *
+ * Rules this file MUST keep:
+ *  - No raw SQL: persistence goes through ExampleRepository.
+ *  - No HTTP: no `reply`, no status codes — return data + flags.
+ *  - No `process.env` / `new SomeAdapter()`: every adapter comes off `container`
+ *    (container.db, container.jobs, container.secrets, container.git, ...).
+ *  - Throw typed errors from platform/errors.ts; the boundary serializes them.
+ */
+export class ExampleService {
+  private repo: ExampleRepository;
+
+  constructor(private container: Container) {
+    this.repo = new ExampleRepository(container.db);
+  }
+
+  async list(workspaceId: string) {
+    const rows = await this.repo.list(workspaceId);
+    return rows.map(toExampleDto);                       // pure transform via helper
+  }
+
+  async create(workspaceId: string, userId: string, input: unknown): Promise<{ item: ReturnType<typeof toExampleDto>; created: boolean }> {
+    // ...business decisions here (dedupe, validation, policy)...
+    const row: ExampleRow = await this.repo.insert({ workspaceId, createdBy: userId /* , ...input */ });
+    // ...orchestration via container adapters, e.g.:
+    // await this.container.jobs.enqueue(workspaceId, SOME_JOB_KIND, { id: row.id });
+    return { item: toExampleDto(row), created: true };
+  }
+
+  async remove(workspaceId: string, id: string): Promise<void> {
+    const ok = await this.repo.remove(workspaceId, id);
+    if (!ok) throw new NotFoundError('Example not found');
+  }
+}

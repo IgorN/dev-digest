@@ -1,0 +1,37 @@
+import type { FastifyInstance } from 'fastify';
+import type { ZodTypeProvider } from 'fastify-type-provider-zod';
+// import { ExampleInput } from '@devdigest/shared';   // your zod request contract
+import { getContext } from '../_shared/context.js';
+import { IdParams } from '../_shared/schemas.js';
+import { ExampleService } from './service.js';
+
+/**
+ * <name> module — TRANSPORT ring only. Parses/validates requests, resolves
+ * tenancy, maps status codes, and delegates ALL logic to ExampleService.
+ * No business decisions and no raw SQL live here.
+ */
+export default async function exampleRoutes(appBase: FastifyInstance) {
+  const app = appBase.withTypeProvider<ZodTypeProvider>();
+  const service = new ExampleService(app.container);   // construct the use-case, inject the container
+
+  // If the module owns a background job, register its handler once here:
+  // service.registerSomeJobHandler();
+
+  app.get('/examples', async (req) => {
+    const { workspaceId } = await getContext(app.container, req);
+    return service.list(workspaceId);
+  });
+
+  app.post('/examples', { schema: { /* body: ExampleInput */ } }, async (req, reply) => {
+    const { workspaceId, userId } = await getContext(app.container, req);
+    const { item, created } = await service.create(workspaceId, userId, req.body);
+    reply.status(created ? 201 : 200);                 // status mapping = transport concern
+    return item;
+  });
+
+  app.delete('/examples/:id', { schema: { params: IdParams } }, async (req) => {
+    const { workspaceId } = await getContext(app.container, req);
+    await service.remove(workspaceId, req.params.id);  // throws NotFoundError → boundary serializes
+    return { deleted: req.params.id };
+  });
+}

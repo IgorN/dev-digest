@@ -1,0 +1,10 @@
+/**
+ * <name> module constants — DOMAIN CORE ring. Literals, magic numbers, secret
+ * NAMES (not values — values come from container.secrets), and regexes. No I/O.
+ */
+
+// /** JobRunner kind for this module's async job. */
+// export const SOME_JOB_KIND = 'example';
+
+// /** Secret name resolved via container.secrets.get(...) — never the value itself. */
+// export const SOME_TOKEN_SECRET = 'EXAMPLE_TOKEN';

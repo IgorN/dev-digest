@@ -131,6 +131,27 @@ export const Skill = z.object({
 });
 export type Skill = z.infer<typeof Skill>;
 
+// An immutable body snapshot recorded in `skill_versions` each time a skill's
+// `body` changes. Powers the Skill editor's Versions tab (edit history).
+export const SkillVersion = z.object({
+  skill_id: z.string(),
+  version: z.number().int(),
+  body: z.string(),
+  /** Optional "what changed" note the author typed when saving this version. */
+  message: z.string().nullish(),
+  created_at: z.string(),
+});
+export type SkillVersion = z.infer<typeof SkillVersion>;
+
+// Where a skill is used: the agents that link it. Powers the Stats tab.
+export const SkillUsage = z.object({
+  agent_count: z.number().int(),
+  agents: z.array(
+    z.object({ id: z.string(), name: z.string(), enabled: z.boolean(), order: z.number().int() }),
+  ),
+});
+export type SkillUsage = z.infer<typeof SkillUsage>;
+
 export const CommunitySkill = z.object({
   name: z.string(),
   repo: z.string(),
@@ -139,6 +160,26 @@ export const CommunitySkill = z.object({
   desc: z.string(),
 });
 export type CommunitySkill = z.infer<typeof CommunitySkill>;
+
+// The parsed "core" of an uploaded skill (a single markdown file or an archive),
+// shown as a preview BEFORE anything is persisted. Importing is a two-step,
+// confirm-to-save flow: the server parses the markdown core and returns this
+// preview; the client renders it and only then POSTs a create. Executable parts
+// of an archive are never run or even decompressed — they are surfaced in
+// `ignored_files` so the user can see what was dropped. A foreign skill is
+// foreign instructions in an agent's prompt, hence the explicit confirm gate.
+export const SkillImportPreview = z.object({
+  name: z.string(),
+  description: z.string(),
+  type: SkillType,
+  source: SkillSource,
+  body: z.string(),
+  /** Archive entries that were NOT processed (binaries, scripts, executables). */
+  ignored_files: z.array(z.string()),
+  /** Human-readable note about what was extracted / skipped (shown in the preview). */
+  notes: z.string().nullish(),
+});
+export type SkillImportPreview = z.infer<typeof SkillImportPreview>;
 
 // ---- Conventions ----
 export const ConventionCandidate = z.object({

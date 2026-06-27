@@ -23,3 +23,7 @@ test-results/
 
 # emdash worktree config (local)
 .emdash.json
+DevDigest Design (standalone).html
+
+# Playwright MCP output (screenshots/snapshots/logs)
+.playwright-mcp/
