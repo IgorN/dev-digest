@@ -183,6 +183,21 @@ export class ReviewRunExecutor {
 
       const task = taskLine(pull) + rankNote;
 
+      // Skills — reusable, text-only rules linked to this agent (Skills page +
+      // Agent editor's Skills tab). Only ENABLED links contribute; each skill's
+      // markdown `body` becomes a block in the prompt's `## Skills / rules`
+      // section (assemblePrompt). A disabled skill stays linked but is omitted —
+      // so it never shows up in the trace's skills block nor in the token count.
+      const linkedSkills = await this.agents.linkedSkills(agent.id);
+      const skillBodies = linkedSkills.filter((l) => l.skill.enabled).map((l) => l.skill.body);
+      if (linkedSkills.length) {
+        const disabled = linkedSkills.length - skillBodies.length;
+        runLog.info(
+          `skills: ${skillBodies.length} enabled block(s) attached` +
+            (disabled ? ` (${disabled} disabled skill(s) omitted)` : ''),
+        );
+      }
+
       // ---- Engine: assemble → single-pass → grounding -----------------------
       // The pure review pipeline lives in @devdigest/reviewer-core (shared with
       // the CI runner). The service owns only I/O: repo-intel context resolution
@@ -200,6 +215,9 @@ export class ReviewRunExecutor {
         ...(callersDigest ? { callers: callersDigest } : {}),
         // T3 — repo skeleton, same omit-when-empty contract.
         ...(repoMap ? { repoMap } : {}),
+        // L02 — linked enabled skills as prompt blocks; omitted when none, so the
+        // assembly (and token count) is identical to the pre-skills baseline.
+        ...(skillBodies.length ? { skills: skillBodies } : {}),
         // PR author's description/body — untrusted; assemblePrompt wraps +
         // truncates it. Omitted when the PR has no body.
         ...(pull.body ? { prDescription: pull.body } : {}),

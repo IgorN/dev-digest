@@ -1,0 +1,56 @@
+import type { CSSProperties } from "react";
+
+/** Co-located styles for the skill editor's Versions tab. */
+export const s = {
+  wrap: { maxWidth: 820, display: "flex", flexDirection: "column", gap: 12 } satisfies CSSProperties,
+  headerRow: { display: "flex", alignItems: "baseline", gap: 10 } satisfies CSSProperties,
+  title: { fontSize: 18, fontWeight: 700 } satisfies CSSProperties,
+  count: { fontSize: 13, color: "var(--text-muted)" } satisfies CSSProperties,
+  hint: { fontSize: 13, color: "var(--text-secondary)", marginBottom: 4, lineHeight: 1.5 } satisfies CSSProperties,
+  row: {
+    border: "1px solid var(--border)",
+    borderRadius: 8,
+    background: "var(--bg-elevated)",
+    overflow: "hidden",
+  } satisfies CSSProperties,
+  rowHead: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    padding: "10px 14px",
+  } satisfies CSSProperties,
+  message: {
+    fontSize: 13,
+    color: "var(--text-secondary)",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+    maxWidth: 320,
+  } satisfies CSSProperties,
+  noMessage: { fontSize: 13, color: "var(--text-muted)" } satisfies CSSProperties,
+  when: { marginLeft: "auto", fontSize: 12, color: "var(--text-muted)", flexShrink: 0 } satisfies CSSProperties,
+  currentTag: {
+    fontSize: 12,
+    fontWeight: 600,
+    color: "var(--accent)",
+    background: "var(--accent-bg)",
+    padding: "2px 8px",
+    borderRadius: 5,
+  } satisfies CSSProperties,
+  diff: {
+    margin: 0,
+    padding: "10px 14px",
+    borderTop: "1px solid var(--border)",
+    fontFamily: "var(--font-mono, monospace)",
+    fontSize: 12.5,
+    lineHeight: 1.55,
+    whiteSpace: "pre-wrap",
+    wordBreak: "break-word",
+    maxHeight: 320,
+    overflow: "auto",
+    background: "var(--bg-surface)",
+  } satisfies CSSProperties,
+  add: { color: "var(--ok, #4ade80)", background: "rgba(74,222,128,0.10)" } satisfies CSSProperties,
+  del: { color: "var(--crit, #f87171)", background: "rgba(248,113,113,0.10)" } satisfies CSSProperties,
+  eq: { color: "var(--text-secondary)" } satisfies CSSProperties,
+} as const;

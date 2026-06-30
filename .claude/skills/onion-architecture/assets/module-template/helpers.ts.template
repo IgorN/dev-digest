@@ -1,0 +1,18 @@
+import * as t from '../../db/schema.js';
+// import { type Example } from '@devdigest/shared';   // your API DTO type
+
+/**
+ * <name> pure helpers — DOMAIN CORE ring. Pure functions ONLY: no I/O, no DB,
+ * no `container`, no `process.env`. Pure in, pure out — directly unit-testable.
+ * If a function needs to `await` something external, it belongs in service.ts.
+ */
+
+/** Map a persisted row to the API DTO. Takes the row as input — does no fetching. */
+export function toExampleDto(row: typeof t.examples.$inferSelect) {
+  return {
+    id: row.id,
+    workspace_id: row.workspaceId,
+    created_by: row.createdBy,
+    // ...snake_case API shape from the camelCase row...
+  };
+}

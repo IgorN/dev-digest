@@ -181,6 +181,8 @@ export interface GitClient {
   blame(repo: RepoRef, path: string): Promise<BlameLine[]>;
   log(repo: RepoRef, path?: string): Promise<GitCommit[]>;
   readFile(repo: RepoRef, path: string): Promise<string>;
+  /** Tracked file paths in the working tree (`git ls-files`). */
+  listFiles(repo: RepoRef): Promise<string[]>;
   clonePathFor(repo: RepoRef): string;
 }
 

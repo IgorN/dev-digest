@@ -6,7 +6,11 @@ import {
   GENERAL_REVIEWER_PROMPT,
   SECURITY_REVIEWER_PROMPT,
   PERFORMANCE_REVIEWER_PROMPT,
+  TEST_QUALITY_REVIEWER_PROMPT,
+  API_CONTRACT_REVIEWER_PROMPT,
 } from './seed-prompts.js';
+import { SEED_SKILLS, SKILL_LINKS } from './seed-skills.js';
+import { CONVENTION_FIXTURE_FILES } from './seed-conventions.js';
 
 /** Default provider/model for the built-in reviewer agents. */
 const DEFAULT_PROVIDER = 'openrouter' as const;
@@ -175,6 +179,57 @@ export async function seed(db: Db): Promise<{ workspaceId: string; userId: strin
     ]);
   }
 
+  // ---- PR #517 (breaking change) — fixture for the API Contract experiment ----
+  // Renames the `name` response field to `fullName`: a breaking response-schema
+  // change a generic reviewer waves through, but API Contract Reviewer + its
+  // skills catch. Run the agent on this PR with vs without skills to see it.
+  let [breakingPr] = await db
+    .select()
+    .from(t.pullRequests)
+    .where(and(eq(t.pullRequests.repoId, repoId), eq(t.pullRequests.number, 517)));
+  if (!breakingPr) {
+    [breakingPr] = await db
+      .insert(t.pullRequests)
+      .values({
+        workspaceId,
+        repoId,
+        number: 517,
+        title: 'Rename user response field name → fullName',
+        author: 'dan.ivanov',
+        branch: 'feat/user-fullname',
+        base: 'main',
+        headSha: 'b2c3d4e5f6a7',
+        additions: 2,
+        deletions: 2,
+        filesCount: 1,
+        status: 'needs_review',
+        body: 'Small cleanup: rename the user response field `name` to `fullName` so it reads better on the client.',
+      })
+      .returning();
+    await db.insert(t.prFiles).values({
+      prId: breakingPr!.id,
+      path: 'src/api/users.ts',
+      additions: 2,
+      deletions: 2,
+      patch: `@@ -10,8 +10,8 @@ export async function getUser(id: string): Promise<Result<User, ApiError>> {
+   const user = await db.users.find(id);
+   if (!user) {
+     return err({ code: "not_found", message: "User not found" });
+   }
+-  // Public response — clients read \`name\`.
+-  return ok({ id: user.id, name: user.name, email: user.email });
++  // Public response — clients read \`fullName\`.
++  return ok({ id: user.id, fullName: user.name, email: user.email });
+ }`,
+    });
+    await db.insert(t.prCommits).values({
+      prId: breakingPr!.id,
+      sha: 'b2c3d4e5f6a7',
+      message: 'rename name → fullName in user response',
+      author: 'dan.ivanov',
+    });
+  }
+
   // ---- built-in agents (the three starter presets) ----
   // Prompt bodies live in ./seed-prompts.ts (mirrored in docs/agent-prompts/*.md).
   const seedAgents: Array<typeof t.agents.$inferInsert> = [
@@ -211,6 +266,29 @@ export async function seed(db: Db): Promise<{ workspaceId: string; userId: strin
       version: 1,
       createdBy: userId,
     },
+    // L02 — two reviewers whose edge comes from their attached skills (below).
+    {
+      workspaceId,
+      name: 'Test Quality Reviewer',
+      description: 'Reviews test quality: uncovered branches, missing edge cases, mock overuse, flakiness.',
+      provider: DEFAULT_PROVIDER,
+      model: DEFAULT_MODEL,
+      systemPrompt: TEST_QUALITY_REVIEWER_PROMPT,
+      enabled: true,
+      version: 1,
+      createdBy: userId,
+    },
+    {
+      workspaceId,
+      name: 'API Contract Reviewer',
+      description: 'Flags breaking changes to route signatures, schemas, status codes, and auth.',
+      provider: DEFAULT_PROVIDER,
+      model: DEFAULT_MODEL,
+      systemPrompt: API_CONTRACT_REVIEWER_PROMPT,
+      enabled: true,
+      version: 1,
+      createdBy: userId,
+    },
   ];
   for (const a of seedAgents) {
     const [existing] = await db
@@ -218,6 +296,71 @@ export async function seed(db: Db): Promise<{ workspaceId: string; userId: strin
       .from(t.agents)
       .where(and(eq(t.agents.workspaceId, workspaceId), eq(t.agents.name, a.name)));
     if (!existing) await db.insert(t.agents).values(a);
+  }
+
+  // ---- skills catalog (L02) — idempotent by (workspace, name) ----
+  // A skill is reusable text-only guidance injected into an agent's prompt.
+  for (const sk of SEED_SKILLS) {
+    const [existing] = await db
+      .select()
+      .from(t.skills)
+      .where(and(eq(t.skills.workspaceId, workspaceId), eq(t.skills.name, sk.name)));
+    if (!existing) {
+      const [row] = await db
+        .insert(t.skills)
+        .values({
+          workspaceId,
+          name: sk.name,
+          description: sk.description,
+          type: sk.type,
+          source: sk.source,
+          body: sk.body,
+          enabled: true,
+          version: 1,
+        })
+        .returning();
+      // Record version 1 so skill_versions mirrors agent_versions.
+      await db
+        .insert(t.skillVersions)
+        .values({ skillId: row!.id, version: 1, body: sk.body })
+        .onConflictDoNothing();
+    }
+  }
+
+  // ---- link skills to agents in prompt order (L02) — idempotent ----
+  for (const [agentName, skillNames] of Object.entries(SKILL_LINKS)) {
+    const [agent] = await db
+      .select()
+      .from(t.agents)
+      .where(and(eq(t.agents.workspaceId, workspaceId), eq(t.agents.name, agentName)));
+    if (!agent) continue;
+    for (let i = 0; i < skillNames.length; i++) {
+      const [skill] = await db
+        .select()
+        .from(t.skills)
+        .where(and(eq(t.skills.workspaceId, workspaceId), eq(t.skills.name, skillNames[i]!)));
+      if (!skill) continue;
+      await db
+        .insert(t.agentSkills)
+        .values({ agentId: agent.id, skillId: skill.id, order: i })
+        .onConflictDoNothing();
+    }
+  }
+
+  // ---- demo source files for the conventions extractor (L03) ----
+  // Seeded into `code_chunks` (the indexer's content table) so the extractor has
+  // real code to sample, verify candidates against, and deep-link into — even
+  // though the demo repo is never actually cloned. Idempotent by (repo, path).
+  for (const f of CONVENTION_FIXTURE_FILES) {
+    const [existing] = await db
+      .select()
+      .from(t.codeChunks)
+      .where(and(eq(t.codeChunks.repoId, repoId), eq(t.codeChunks.path, f.path)));
+    if (!existing) {
+      await db
+        .insert(t.codeChunks)
+        .values({ workspaceId, repoId, path: f.path, content: f.content, source: 'code' });
+    }
   }
 
   return { workspaceId, userId };

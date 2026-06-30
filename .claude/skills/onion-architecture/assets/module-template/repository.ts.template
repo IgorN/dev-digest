@@ -1,0 +1,47 @@
+import { and, eq } from 'drizzle-orm';
+import type { Db } from '../../db/client.js';
+import * as t from '../../db/schema.js';
+
+/**
+ * <name> data-access — INFRASTRUCTURE ring. The ONLY place that touches this
+ * module's table(s) and the ONLY file in the module that imports `drizzle-orm`
+ * / `db/schema`. Every query is scoped by `workspaceId` (tenancy guard).
+ *
+ * Methods are intention-named and return ROW TYPES / DTOs — never a query
+ * builder. No business rules, no orchestration, no HTTP here.
+ */
+
+// Replace `examples` with your real table.
+export type ExampleRow = typeof t.examples.$inferSelect;
+
+export interface InsertExample {
+  workspaceId: string;
+  createdBy: string;
+  // ...your columns...
+}
+
+export class ExampleRepository {
+  constructor(private db: Db) {}
+
+  async list(workspaceId: string): Promise<ExampleRow[]> {
+    return this.db.select().from(t.examples).where(eq(t.examples.workspaceId, workspaceId));
+  }
+
+  async getById(workspaceId: string, id: string): Promise<ExampleRow | undefined> {
+    const [row] = await this.db.select().from(t.examples)
+      .where(and(eq(t.examples.workspaceId, workspaceId), eq(t.examples.id, id)));
+    return row;
+  }
+
+  async insert(values: InsertExample): Promise<ExampleRow> {
+    const [row] = await this.db.insert(t.examples).values(values).returning();
+    return row!;
+  }
+
+  async remove(workspaceId: string, id: string): Promise<boolean> {
+    const deleted = await this.db.delete(t.examples)
+      .where(and(eq(t.examples.workspaceId, workspaceId), eq(t.examples.id, id)))
+      .returning({ id: t.examples.id });
+    return deleted.length > 0;
+  }
+}

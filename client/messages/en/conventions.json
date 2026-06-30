@@ -1,26 +1,48 @@
 {
-  "page": {
-    "crumbLab": "Skills Lab",
-    "crumbConventions": "Conventions",
-    "headingPrefix": "Conventions in ",
-    "repoFallback": "repo",
-    "subtitle": "Scan the cloned repo to surface house-rules — each backed by evidence you can turn into a Skill.",
-    "scanning": "Scanning…",
-    "rescan": "Re-scan",
-    "runExtraction": "Run extraction",
-    "extractionFailed": "Extraction failed",
-    "loadError": "Could not load conventions.",
-    "empty": {
-      "title": "No conventions extracted yet",
-      "body": "Scan the repo to surface house-rules — naming, error handling, structure — each backed by evidence you can turn into a Skill.",
-      "cta": "Run extraction"
-    },
-    "candidateCount": "{count, plural, one {# candidate} other {# candidates}} · grounded against sampled files"
-  },
+  "breadcrumbLab": "Skills Lab",
+  "breadcrumb": "Conventions",
+  "title": "Conventions in",
+  "detectedFrom": "Detected from {count} sample files",
+  "lastScan": "last scan {ago}",
+  "createSkill": "Create skill",
+  "rescan": "Re-scan",
+  "acceptAll": "Accept all ({count})",
+  "rejectAll": "Reject all",
+  "runExtraction": "Run extraction",
+  "extracting": "Extracting…",
+  "extractedToast": "Extracted {verified} verified conventions (of {proposed} proposed).",
+  "loadError": "Could not load conventions.",
+  "emptyTitle": "No conventions extracted yet",
+  "emptyBody": "Scan the repo to surface house-rules — naming, error handling, structure — each backed by evidence you can turn into a Skill.",
+  "noneFoundTitle": "No conventions found",
+  "noneFoundBody": "The scan ran but no candidate survived evidence verification. Try re-scanning or add more indexed code.",
+  "noRepoTitle": "No repository selected",
+  "noRepoBody": "Pick a repository from the switcher to extract its conventions.",
   "card": {
     "confidence": "Confidence",
+    "copy": "Copy snippet",
+    "accept": "Accept as Skill",
+    "edit": "Edit first",
+    "reject": "Reject",
+    "undoReject": "Restore",
     "accepted": "Accepted",
-    "accepting": "Accepting…",
-    "acceptAsSkill": "Accept as Skill"
+    "save": "Save",
+    "cancel": "Cancel"
+  },
+  "modal": {
+    "title": "Create skill from conventions",
+    "mergedFrom": "Merged from {count} accepted conventions in {repo}. Everything below is editable before you save.",
+    "name": "Name",
+    "description": "Description",
+    "type": "Type",
+    "enabled": "Enabled",
+    "enabledHint": "Whether this block is added to agents' prompts.",
+    "body": "Skill body",
+    "tokens": "{count} tokens",
+    "footerNote": "Saved as v1 · added to Skills Lab",
+    "cancel": "Cancel",
+    "create": "Create skill",
+    "creating": "Creating…",
+    "saved": "Created skill \"{name}\" from conventions."
   }
 }

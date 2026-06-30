@@ -129,6 +129,15 @@ export class SimpleGitClient implements GitClient {
   async readFile(repo: RepoRef, path: string): Promise<string> {
     return readFile(join(this.clonePathFor(repo), path), 'utf8');
   }
+
+  /** Tracked files via `git ls-files` (honors .gitignore — no node_modules/build). */
+  async listFiles(repo: RepoRef): Promise<string[]> {
+    const raw = await this.git(repo).raw(['ls-files']);
+    return raw
+      .split('\n')
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+  }
 }
 
 function parseBlamePorcelain(raw: string): BlameLine[] {

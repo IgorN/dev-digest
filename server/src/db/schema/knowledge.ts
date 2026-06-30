@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, jsonb, timestamp, doublePrecision, boolean, vector, index } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, jsonb, timestamp, doublePrecision, boolean, integer, vector, index } from 'drizzle-orm/pg-core';
 import { now } from './_shared';
 import { workspaces } from './core';
 import { repos } from './repos';
@@ -34,9 +34,17 @@ export const conventions = pgTable('conventions', {
     .notNull()
     .references(() => workspaces.id, { onDelete: 'cascade' }),
   repoId: uuid('repo_id').references(() => repos.id, { onDelete: 'cascade' }),
+  // L03 conventions-extractor: a coarse bucket the model assigns
+  // (naming / error-handling / structure / async / imports / testing …).
+  category: text('category'),
   rule: text('rule').notNull(),
   evidencePath: text('evidence_path'),
   evidenceSnippet: text('evidence_snippet'),
+  // Verified line range of the evidence in `evidence_path` — drives the
+  // clickable GitHub blob deep-link.
+  evidenceStartLine: integer('evidence_start_line'),
+  evidenceEndLine: integer('evidence_end_line'),
   confidence: doublePrecision('confidence'),
-  accepted: boolean('accepted').notNull().default(false),
+  // null = undecided (shown as a candidate), true = accepted, false = rejected.
+  accepted: boolean('accepted'),
 });
