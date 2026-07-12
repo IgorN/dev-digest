@@ -97,6 +97,14 @@ export function lineSignFor(kind: Line["kind"]): CSSProperties {
   };
 }
 
+/** Smart Diff's per-line severity accent (the mockup's coloured left edge) —
+   a solid border so it reads at a glance scrolling down the gutter, distinct
+   from `lineHighlight`'s temporary click-to-line ring (both can be active on
+   the same row at once; different properties, so neither clobbers the other). */
+export function severityAccentStyle(color: string): CSSProperties {
+  return { borderLeft: `3px solid ${color}` };
+}
+
 /** Smart Diff's inline per-line severity chip (the mockup's "suggestion" /
    "warning" / "blocker" row tags) — pinned to the row's right edge via
    `marginLeft: auto` regardless of the line text's length. */

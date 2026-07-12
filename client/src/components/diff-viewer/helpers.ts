@@ -1,5 +1,16 @@
 /** Pure helpers for the DiffViewer. */
+import type { Severity } from "@/lib/types";
 import { HUNK_HEADER_RE } from "./constants";
+
+/** A line's severity (left-edge accent + badge colour) + hover-tooltip text.
+   Owned here (like `DiffCommentApi` in `comments.ts`) so a caller — e.g.
+   Smart Diff's `SmartDiffViewer` — can build one without CodeLine/FileCard
+   depending back on feature-specific code; the flat DiffViewer never builds
+   one and none of this renders there. */
+export interface LineFinding {
+  severity: Severity;
+  tooltip: string;
+}
 
 /** Stable per-(file, new/current-side line) DOM anchor id. Only "new" line
    numbers are addressable — a Finding's `start_line` (and therefore
