@@ -1,9 +1,12 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import { SectionLabel, Button } from "@devdigest/ui";
 import { DiffViewer, type DiffCommentApi } from "@/components/diff-viewer";
+import { SmartDiffViewer } from "./_components/SmartDiffViewer";
 import { usePrComments, useCreatePrComment } from "@/lib/hooks/reviews";
+import { useSmartDiff } from "@/lib/hooks/smart-diff";
 import { notify } from "@/lib/toast";
 import type { PrFile } from "@devdigest/shared";
 
@@ -16,8 +19,13 @@ interface DiffTabProps {
 }
 
 export function DiffTab({ prId, filesCount, files, canComment }: DiffTabProps) {
+  const t = useTranslations("prReview");
   const { data: comments } = usePrComments(prId);
   const create = useCreatePrComment(prId);
+  // Smart Diff (risk-grouped) is the default view — see the render below,
+  // which falls back to the flat/original-order DiffViewer only while this is
+  // loading or failed to load.
+  const { data: smartDiff, isLoading: smartDiffLoading, isError: smartDiffError } = useSmartDiff(prId);
   // Comments start hidden so the diff is clean by default — toggle to reveal.
   const [showComments, setShowComments] = React.useState(false);
 
@@ -40,6 +48,10 @@ export function DiffTab({ prId, filesCount, files, canComment }: DiffTabProps) {
     },
   };
 
+  // Smart Diff swaps in only once it has actually resolved — while loading or
+  // on error, the flat viewer (unaffected by any of this) keeps rendering.
+  const showSmart = !smartDiffLoading && !smartDiffError && smartDiff != null;
+
   return (
     <section>
       <SectionLabel
@@ -57,9 +69,13 @@ export function DiffTab({ prId, filesCount, files, canComment }: DiffTabProps) {
           ) : undefined
         }
       >
-        Files changed · {filesCount} files
+        {showSmart ? t("smartDiff.groupedByRole") : `Files changed · ${filesCount} files`}
       </SectionLabel>
-      <DiffViewer files={files} commenting={commenting} />
+      {showSmart && smartDiff ? (
+        <SmartDiffViewer data={smartDiff} files={files} commenting={commenting} />
+      ) : (
+        <DiffViewer files={files} commenting={commenting} />
+      )}
     </section>
   );
 }

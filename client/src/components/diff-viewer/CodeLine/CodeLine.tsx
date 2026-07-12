@@ -4,7 +4,7 @@
 
 import React from "react";
 import { commentTargetFor, type CommentThread, type DiffCommentApi, cs } from "../comments";
-import { type Line } from "../helpers";
+import { diffLineElementId, type Line } from "../helpers";
 import { s, lineRowFor, lineSignFor } from "../styles";
 import { CommentThreadView } from "../CommentThreadView";
 import { InlineComposer } from "../InlineComposer";
@@ -14,11 +14,16 @@ export function CodeLine({
   path,
   threads,
   commenting,
+  highlighted = false,
 }: {
   ln: Line;
   path: string;
   threads: CommentThread[];
   commenting?: DiffCommentApi;
+  /** Smart Diff's click-to-line target briefly flashes this row (Design
+     decision H's per-line DOM anchor). Ignored by the flat DiffViewer, which
+     never passes it. */
+  highlighted?: boolean;
 }) {
   const [hover, setHover] = React.useState(false);
   const [composing, setComposing] = React.useState(false);
@@ -34,14 +39,18 @@ export function CodeLine({
   const sign = ln.kind === "add" ? "+" : ln.kind === "del" ? "−" : "";
   const target = commenting?.canComment ? commentTargetFor(ln) : null;
   const showAdd = hover && !!target && !composing;
+  // Only add/ctx lines have a "new" (current-file) line number — that's what
+  // finding_lines refers to, so a pure deletion never gets an anchor id.
+  const anchorId = ln.newNo != null ? diffLineElementId(path, ln.newNo) : undefined;
 
   return (
     <div
+      id={anchorId}
       style={cs.rowWrap}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
     >
-      <div style={lineRowFor(ln.kind)}>
+      <div style={{ ...lineRowFor(ln.kind), ...(highlighted ? s.lineHighlight : undefined) }}>
         <span className="mono tnum" style={{ ...s.lineNo, position: "relative" }}>
           {showAdd && target && (
             <button

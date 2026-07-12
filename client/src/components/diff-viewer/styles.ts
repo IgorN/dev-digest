@@ -64,6 +64,12 @@ export const s = {
     color: "var(--text-primary)",
     paddingRight: 12,
   } satisfies CSSProperties,
+  /** Smart Diff's click-to-line target: briefly overlaid on a row's own
+     kind-based background (add/del/ctx) — see CodeLine's `highlighted` prop. */
+  lineHighlight: {
+    background: "var(--accent-bg)",
+    boxShadow: "inset 0 0 0 1px var(--accent)",
+  } satisfies CSSProperties,
 } as const;
 
 /** Chevron rotates 90deg when the file card is open. */

@@ -1,6 +1,19 @@
 /** Pure helpers for the DiffViewer. */
 import { HUNK_HEADER_RE } from "./constants";
 
+/** Stable per-(file, new/current-side line) DOM anchor id. Only "new" line
+   numbers are addressable — a Finding's `start_line` (and therefore
+   SmartDiffFile.finding_lines) always refers to the file's CURRENT content,
+   so a pure deletion (no `newNo`) is never a valid target. Shared by CodeLine
+   (sets the id on its row) and FileCard (looks it up via
+   document.getElementById to scroll+highlight on a click-to-line instruction
+   — see FileCard's targetLine/targetNonce props). `encodeURIComponent` keeps
+   the id valid/unique even for paths with slashes or unusual characters;
+   getElementById doesn't need CSS-selector-safe characters. */
+export function diffLineElementId(path: string, line: number): string {
+  return `diff-line::${encodeURIComponent(path)}::${line}`;
+}
+
 export interface Line {
   kind: "add" | "del" | "ctx" | "hunk";
   text: string;
