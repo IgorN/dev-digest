@@ -65,7 +65,7 @@ cd client && pnpm test
 - **Integration tests must end in `*.it.test.ts`** — the unit lane excludes that glob.
 - **`@devdigest/shared` is vendored** into `server/src/vendor/shared` AND `client/src/vendor/shared`;
   editing one does NOT update the other — keep both in sync deliberately.
-- **`server/package.json` is `git skip-worktree`** — don't rely on uncommitted scripts.
+- **`server/package.json` may be `git skip-worktree`** (per-clone flag, not set in every checkout — verify with `git ls-files -v server/package.json`, `S` = set) — don't rely on uncommitted scripts.
 - Secrets go through `container.secrets`, never `process.env`; call `container.invalidateSecretCaches()` after a Settings change.
 - Feature modules are registered **statically** in `server/src/modules/index.ts` — no autoload.
 
@@ -79,3 +79,4 @@ cd client && pnpm test
 - Stack/commands/how-to-run detail → that package's `README.md`
 - Gotchas & findings → that package's `INSIGHTS.md`
 - How insights get captured → `.claude/skills/engineering-insights/SKILL.md`
+- Sub-agent pipeline for developing DevDigest itself → `.claude/agents/README.md`
