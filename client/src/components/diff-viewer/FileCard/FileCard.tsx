@@ -5,7 +5,7 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import { Icon } from "@devdigest/ui";
-import type { PrFile } from "@/lib/types";
+import type { PrFile, Severity } from "@/lib/types";
 import { AUTO_EXPAND_MAX_LINES, LINE_HIGHLIGHT_MS } from "../constants";
 import { parsePatch, diffLineElementId, type Line } from "../helpers";
 import {
@@ -37,6 +37,7 @@ export function FileCard({
   onFindingsClick,
   targetLine = null,
   targetNonce = 0,
+  lineSeverities,
 }: {
   file: PrFile;
   commenting?: DiffCommentApi;
@@ -55,6 +56,10 @@ export function FileCard({
      ReviewRunAccordion's targetRunId/targetNonce pattern. */
   targetLine?: number | null;
   targetNonce?: number;
+  /** current-file line -> worst severity at that line; renders a small
+     inline badge per matching row. Ignored by the flat DiffViewer, which
+     never passes this. */
+  lineSeverities?: Map<number, Severity>;
 }) {
   const t = useTranslations("shell");
   const [open, setOpen] = React.useState(
@@ -165,6 +170,7 @@ export function FileCard({
                 threads={threadsForLine(ln, matched)}
                 commenting={commenting}
                 highlighted={highlightLine != null && ln.newNo === highlightLine}
+                severity={ln.newNo != null ? lineSeverities?.get(ln.newNo) : undefined}
               />
             ))
           )}

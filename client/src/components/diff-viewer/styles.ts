@@ -96,3 +96,24 @@ export function lineSignFor(kind: Line["kind"]): CSSProperties {
     flexShrink: 0,
   };
 }
+
+/** Smart Diff's inline per-line severity chip (the mockup's "suggestion" /
+   "warning" / "blocker" row tags) — pinned to the row's right edge via
+   `marginLeft: auto` regardless of the line text's length. */
+export function severityBadgeStyle(color: string, bg: string): CSSProperties {
+  return {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 4,
+    marginLeft: "auto",
+    marginRight: 10,
+    padding: "1px 7px",
+    borderRadius: 4,
+    fontSize: 11,
+    fontWeight: 600,
+    color,
+    background: bg,
+    flexShrink: 0,
+    whiteSpace: "nowrap",
+  };
+}

@@ -10,7 +10,7 @@ import { useTranslations } from "next-intl";
 import { Icon } from "@devdigest/ui";
 import type { DiffCommentApi } from "@/components/diff-viewer";
 import { FileCard } from "@/components/diff-viewer/FileCard";
-import type { SmartDiffFile, SmartDiffRole } from "@/lib/types";
+import type { Severity, SmartDiffFile, SmartDiffRole } from "@/lib/types";
 import { ROLE_ICON, ROLE_LABEL_KEY } from "./constants";
 import type { JoinedFile, JumpTarget } from "./helpers";
 import { s, groupChevronStyle } from "./styles";
@@ -24,6 +24,7 @@ export function RoleGroup({
   commenting,
   jumpTarget,
   onFindingsClick,
+  lineSeverities,
 }: {
   role: SmartDiffRole;
   joined: JoinedFile[];
@@ -33,6 +34,10 @@ export function RoleGroup({
   commenting?: DiffCommentApi;
   jumpTarget: JumpTarget | null;
   onFindingsClick: (file: SmartDiffFile) => void;
+  /** path -> (current-file line -> worst severity at that line), for the
+     inline per-line badge (Design decision A still holds: no AI summaries —
+     this is real, already-computed finding severity, not a new LLM call). */
+  lineSeverities: Map<string, Map<number, Severity>>;
 }) {
   const t = useTranslations("prReview");
   const RoleIcon = Icon[ROLE_ICON[role]];
@@ -82,6 +87,7 @@ export function RoleGroup({
               onFindingsClick={() => onFindingsClick(smart)}
               targetLine={jumpTarget?.path === smart.path ? jumpTarget.line : null}
               targetNonce={jumpTarget?.path === smart.path ? jumpTarget.nonce : 0}
+              lineSeverities={lineSeverities.get(smart.path)}
             />
           ))}
         </div>

@@ -12,21 +12,27 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import type { DiffCommentApi } from "@/components/diff-viewer";
-import type { PrFile, SmartDiff, SmartDiffFile, SmartDiffRole } from "@/lib/types";
+import type { PrFile, ReviewRecord, SmartDiff, SmartDiffFile, SmartDiffRole } from "@/lib/types";
 import { RoleGroup } from "./RoleGroup";
 import { SplitSuggestionBanner } from "./SplitSuggestionBanner";
-import { joinFiles, type JumpTarget } from "./helpers";
+import { buildLineSeverities, joinFiles, type JumpTarget } from "./helpers";
 import { s } from "./styles";
 
 export function SmartDiffViewer({
   data,
   files,
+  reviews,
   commenting,
 }: {
   data: SmartDiff;
   /** The PR's full file list — SmartDiffFile carries no `patch`, so it's
      joined back in by path (a file with no match is skipped, not crashed on). */
   files: PrFile[];
+  /** Already-fetched reviews (same data FindingsTab uses) — read here ONLY to
+     derive each finding's `severity` per line for the inline row badge; the
+     "N finding-lines" count itself still comes from `data` (the SmartDiff
+     response), never recomputed from this. */
+  reviews: ReviewRecord[];
   commenting?: DiffCommentApi;
 }) {
   const t = useTranslations("shell");
@@ -39,6 +45,7 @@ export function SmartDiffViewer({
     () => data.groups.map((g) => ({ role: g.role, joined: joinFiles(g.files, byPath) })),
     [data.groups, byPath]
   );
+  const lineSeverities = React.useMemo(() => buildLineSeverities(reviews), [reviews]);
 
   function handleFindingsClick(role: SmartDiffRole, file: SmartDiffFile) {
     if (file.finding_lines.length === 0) return;
@@ -68,6 +75,7 @@ export function SmartDiffViewer({
             commenting={commenting}
             jumpTarget={jumpTarget}
             onFindingsClick={(file) => handleFindingsClick(role, file)}
+            lineSeverities={lineSeverities}
           />
         )
       )}

@@ -83,7 +83,7 @@ const DATA: SmartDiff = {
 function renderViewer() {
   return render(
     <NextIntlClientProvider locale="en" messages={{ shell: shellMessages, prReview: prReviewMessages }}>
-      <SmartDiffViewer data={DATA} files={FILES} />
+      <SmartDiffViewer data={DATA} files={FILES} reviews={[]} />
     </NextIntlClientProvider>,
   );
 }
