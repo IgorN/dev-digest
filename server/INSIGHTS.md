@@ -10,7 +10,6 @@ Append-only — see the `engineering-insights` skill for how entries are capture
 
 - **2026-06-19** — Adding a NEW required field to a persisted document contract breaks reading old rows: `run_traces.trace` is stored JSON, so making `RunStats.cost_usd` `.nullable()` (key required) throws in `RunTrace.parse` on traces written before the field existed. Use `.nullish()` for fields added to already-persisted contracts. Evidence: `src/vendor/shared/contracts/trace.ts`.
 - **2026-07-12** — A naive grep for `container.llm|completeStructured|.complete(` to prove a module makes zero LLM calls is fragile — it can false-positive on those identifiers merely appearing in an explanatory doc comment (hit directly while building Smart Diff: a comment explaining "no LLM call" spelled out the literal grepped terms). Verify by reading control flow, not just grepping, or reword nearby prose to avoid the literal identifiers. Evidence: `src/modules/smart-diff/service.ts`, `routes.ts`.
-- **2026-07-12** — The seeded `acme/payments-api` PR #482 (`GET /repos/:id/pulls`) has `filesCount=9` (matching a UI design mockup) but only 4 real `pr_files` rows persisted, none with `patch` text — it can't demonstrate boilerplate/lock-file grouping or diff-line rendering in a live manual check. For manual verification of diff-rendering features, use a real synced repo instead (e.g. `IgorN/vue-starter-kit`, `clone_path` set) — full patch text, richer file set. Evidence: `src/db/seed.ts` vs. live `GET /pulls/:id` response.
 
 ## Codebase Patterns
 
