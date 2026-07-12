@@ -92,6 +92,15 @@ export function FileCard({
     return () => clearTimeout(timer);
   }, [open, targetLine, targetNonce, file.path]);
 
+  // A per-line severity badge is clicked directly (already on-screen, no
+  // scroll/expand needed) — just re-flash it, so clicking anything that
+  // looks like a badge visibly confirms it did something, matching the
+  // header findings badge's own click feedback.
+  function flashLine(line: number) {
+    setHighlightLine(line);
+    window.setTimeout(() => setHighlightLine((cur) => (cur === line ? null : cur)), LINE_HIGHLIGHT_MS);
+  }
+
   // Group this file's comments into threads, then split into ones we can anchor
   // to a rendered line vs. "outdated" (GitHub dropped the line / it's not here).
   const comments = commenting?.comments;
@@ -136,7 +145,12 @@ export function FileCard({
               gap: 4,
               fontSize: 12,
               fontWeight: 600,
-              color: "var(--warn)",
+              // Neutral, deliberately NOT one of the severity colours (this
+              // badge is a mixed-severity COUNT, not itself a severity — using
+              // e.g. --warn here reads as "this file is a warning", which
+              // isn't what it means, and collides with the real per-line
+              // Warning chips below it).
+              color: "var(--info)",
               background: "var(--bg-hover)",
               border: "none",
               borderRadius: 5,
@@ -171,6 +185,7 @@ export function FileCard({
                 commenting={commenting}
                 highlighted={highlightLine != null && ln.newNo === highlightLine}
                 finding={ln.newNo != null ? lineFindings?.get(ln.newNo) : undefined}
+                onFindingBadgeClick={ln.newNo != null ? () => flashLine(ln.newNo!) : undefined}
               />
             ))
           )}

@@ -119,8 +119,11 @@ export function severityBadgeStyle(color: string, bg: string): CSSProperties {
     borderRadius: 4,
     fontSize: 11,
     fontWeight: 600,
+    fontFamily: "inherit",
     color,
     background: bg,
+    border: "none",
+    cursor: "pointer",
     flexShrink: 0,
     whiteSpace: "nowrap",
   };

@@ -17,6 +17,7 @@ export function CodeLine({
   commenting,
   highlighted = false,
   finding,
+  onFindingBadgeClick,
 }: {
   ln: Line;
   path: string;
@@ -31,6 +32,10 @@ export function CodeLine({
      left-edge colour accent) plus the hover-tooltip text. Ignored by the
      flat DiffViewer, which never passes it. */
   finding?: LineFinding;
+  /** Fired when the severity badge itself is clicked — re-flashes this same
+     row so a click always visibly confirms it did something (this row is
+     already on-screen, so there's nowhere to scroll to). */
+  onFindingBadgeClick?: () => void;
 }) {
   const [hover, setHover] = React.useState(false);
   const [composing, setComposing] = React.useState(false);
@@ -86,10 +91,16 @@ export function CodeLine({
           {ln.text || " "}
         </span>
         {finding && SeverityIcon && (
-          <span title={finding.tooltip} style={severityBadgeStyle(SEV[finding.severity].c, SEV[finding.severity].bg)}>
+          <button
+            type="button"
+            title={finding.tooltip}
+            aria-label={finding.tooltip}
+            onClick={onFindingBadgeClick}
+            style={severityBadgeStyle(SEV[finding.severity].c, SEV[finding.severity].bg)}
+          >
             <SeverityIcon size={11} />
             {SEV[finding.severity].label}
-          </span>
+          </button>
         )}
       </div>
 
