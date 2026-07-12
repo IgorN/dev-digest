@@ -1,15 +1,17 @@
 /** Pure helpers for the DiffViewer. */
-import type { Severity } from "@/lib/types";
+import type { FindingRecord } from "@/lib/types";
 import { HUNK_HEADER_RE } from "./constants";
 
-/** A line's severity (left-edge accent + badge colour) + hover-tooltip text.
-   Owned here (like `DiffCommentApi` in `comments.ts`) so a caller — e.g.
-   Smart Diff's `SmartDiffViewer` — can build one without CodeLine/FileCard
-   depending back on feature-specific code; the flat DiffViewer never builds
-   one and none of this renders there. */
+/** Every finding at one line, worst severity first — the left-edge accent +
+   badge colour use `findings[0].severity`; the hover peek (mirrors
+   `FindingsSummary`'s popover) lists all of them. Owned here (like
+   `DiffCommentApi` in `comments.ts`) so a caller — e.g. Smart Diff's
+   `SmartDiffViewer` — can build one without CodeLine/FileCard depending back
+   on feature-specific code; the flat DiffViewer never builds one and none of
+   this renders there. */
 export interface LineFinding {
-  severity: Severity;
-  tooltip: string;
+  /** Non-empty, sorted most-severe first. */
+  findings: FindingRecord[];
 }
 
 /** Stable per-(file, new/current-side line) DOM anchor id. Only "new" line

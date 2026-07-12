@@ -3,12 +3,13 @@
 "use client";
 
 import React from "react";
-import { Icon, SEV } from "@devdigest/ui";
+import { SEV } from "@devdigest/ui";
 import { commentTargetFor, type CommentThread, type DiffCommentApi, cs } from "../comments";
 import { diffLineElementId, type Line, type LineFinding } from "../helpers";
-import { s, lineRowFor, lineSignFor, severityBadgeStyle, severityAccentStyle } from "../styles";
+import { s, lineRowFor, lineSignFor, severityAccentStyle } from "../styles";
 import { CommentThreadView } from "../CommentThreadView";
 import { InlineComposer } from "../InlineComposer";
+import { FindingsPeekBadge } from "../FindingsPeekBadge";
 
 export function CodeLine({
   ln,
@@ -27,10 +28,9 @@ export function CodeLine({
      decision H's per-line DOM anchor). Ignored by the flat DiffViewer, which
      never passes it. */
   highlighted?: boolean;
-  /** Smart Diff's per-line severity tag (worst finding at this line, e.g.
-     the mockup's inline "suggestion" / "warning" / "blocker" chips + its
-     left-edge colour accent) plus the hover-tooltip text. Ignored by the
-     flat DiffViewer, which never passes it. */
+  /** Smart Diff's per-line finding(s) (worst-first) — drives the left-edge
+     colour accent and a hover-peek badge (mirrors `FindingsSummary`'s
+     popover). Ignored by the flat DiffViewer, which never passes it. */
   finding?: LineFinding;
   /** Fired when the severity badge itself is clicked — re-flashes this same
      row so a click always visibly confirms it did something (this row is
@@ -54,7 +54,7 @@ export function CodeLine({
   // Only add/ctx lines have a "new" (current-file) line number — that's what
   // finding_lines refers to, so a pure deletion never gets an anchor id.
   const anchorId = ln.newNo != null ? diffLineElementId(path, ln.newNo) : undefined;
-  const SeverityIcon = finding ? Icon[SEV[finding.severity].icon] : null;
+  const worstSeverity = finding?.findings[0]?.severity;
 
   return (
     <div
@@ -66,7 +66,7 @@ export function CodeLine({
       <div
         style={{
           ...lineRowFor(ln.kind),
-          ...(finding ? severityAccentStyle(SEV[finding.severity].c) : undefined),
+          ...(worstSeverity ? severityAccentStyle(SEV[worstSeverity].c) : undefined),
           ...(highlighted ? s.lineHighlight : undefined),
         }}
       >
@@ -90,18 +90,7 @@ export function CodeLine({
         <span className="mono" style={s.lineText}>
           {ln.text || " "}
         </span>
-        {finding && SeverityIcon && (
-          <button
-            type="button"
-            title={finding.tooltip}
-            aria-label={finding.tooltip}
-            onClick={onFindingBadgeClick}
-            style={severityBadgeStyle(SEV[finding.severity].c, SEV[finding.severity].bg)}
-          >
-            <SeverityIcon size={11} />
-            {SEV[finding.severity].label}
-          </button>
-        )}
+        {finding && <FindingsPeekBadge finding={finding} onClick={onFindingBadgeClick} />}
       </div>
 
       {commenting &&
