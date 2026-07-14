@@ -32,6 +32,14 @@ export const BOILERPLATE_PATTERNS: RegExp[] = [
   /(^|\/)\.next\//,
   /(^|\/)out\//,
   /(^|\/)coverage\//,
+  // Generically-named generated-output directories (framework-agnostic,
+  // alongside the framework-specific ones above).
+  /(^|\/)generated\//,
+  // TypeScript declaration files — machine-emitted from source, not
+  // hand-written, so they carry no independent reviewer signal.
+  /\.d\.ts$/,
+  // SVG assets — visual/markup, not reviewable as code.
+  /\.svg$/,
 ];
 
 /**
