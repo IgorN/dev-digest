@@ -64,6 +64,12 @@ export const s = {
     color: "var(--text-primary)",
     paddingRight: 12,
   } satisfies CSSProperties,
+  /** Smart Diff's click-to-line target: briefly overlaid on a row's own
+     kind-based background (add/del/ctx) — see CodeLine's `highlighted` prop. */
+  lineHighlight: {
+    background: "var(--accent-bg)",
+    boxShadow: "inset 0 0 0 1px var(--accent)",
+  } satisfies CSSProperties,
 } as const;
 
 /** Chevron rotates 90deg when the file card is open. */
@@ -88,5 +94,37 @@ export function lineSignFor(kind: Line["kind"]): CSSProperties {
     textAlign: "center",
     color: kind === "add" ? "var(--code-add-text)" : kind === "del" ? "var(--code-del-text)" : "var(--text-muted)",
     flexShrink: 0,
+  };
+}
+
+/** Smart Diff's per-line severity accent (the mockup's coloured left edge) —
+   a solid border so it reads at a glance scrolling down the gutter, distinct
+   from `lineHighlight`'s temporary click-to-line ring (both can be active on
+   the same row at once; different properties, so neither clobbers the other). */
+export function severityAccentStyle(color: string): CSSProperties {
+  return { borderLeft: `3px solid ${color}` };
+}
+
+/** Smart Diff's inline per-line severity chip (the mockup's "suggestion" /
+   "warning" / "blocker" row tags) — pinned to the row's right edge via
+   `marginLeft: auto` regardless of the line text's length. */
+export function severityBadgeStyle(color: string, bg: string): CSSProperties {
+  return {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 4,
+    marginLeft: "auto",
+    marginRight: 10,
+    padding: "1px 7px",
+    borderRadius: 4,
+    fontSize: 11,
+    fontWeight: 600,
+    fontFamily: "inherit",
+    color,
+    background: bg,
+    border: "none",
+    cursor: "pointer",
+    flexShrink: 0,
+    whiteSpace: "nowrap",
   };
 }

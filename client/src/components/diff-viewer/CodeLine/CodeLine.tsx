@@ -3,22 +3,39 @@
 "use client";
 
 import React from "react";
+import { SEV } from "@devdigest/ui";
 import { commentTargetFor, type CommentThread, type DiffCommentApi, cs } from "../comments";
-import { type Line } from "../helpers";
-import { s, lineRowFor, lineSignFor } from "../styles";
+import { diffLineElementId, type Line, type LineFinding } from "../helpers";
+import { s, lineRowFor, lineSignFor, severityAccentStyle } from "../styles";
 import { CommentThreadView } from "../CommentThreadView";
 import { InlineComposer } from "../InlineComposer";
+import { FindingsPeekBadge } from "../FindingsPeekBadge";
 
 export function CodeLine({
   ln,
   path,
   threads,
   commenting,
+  highlighted = false,
+  finding,
+  onFindingBadgeClick,
 }: {
   ln: Line;
   path: string;
   threads: CommentThread[];
   commenting?: DiffCommentApi;
+  /** Smart Diff's click-to-line target briefly flashes this row (Design
+     decision H's per-line DOM anchor). Ignored by the flat DiffViewer, which
+     never passes it. */
+  highlighted?: boolean;
+  /** Smart Diff's per-line finding(s) (worst-first) — drives the left-edge
+     colour accent and a hover-peek badge (mirrors `FindingsSummary`'s
+     popover). Ignored by the flat DiffViewer, which never passes it. */
+  finding?: LineFinding;
+  /** Fired with a finding's id when the severity badge (or one of its hover
+     popover's rows) is clicked — the caller navigates to that finding in the
+     Findings tab. */
+  onFindingBadgeClick?: (findingId: string) => void;
 }) {
   const [hover, setHover] = React.useState(false);
   const [composing, setComposing] = React.useState(false);
@@ -34,14 +51,25 @@ export function CodeLine({
   const sign = ln.kind === "add" ? "+" : ln.kind === "del" ? "−" : "";
   const target = commenting?.canComment ? commentTargetFor(ln) : null;
   const showAdd = hover && !!target && !composing;
+  // Only add/ctx lines have a "new" (current-file) line number — that's what
+  // finding_lines refers to, so a pure deletion never gets an anchor id.
+  const anchorId = ln.newNo != null ? diffLineElementId(path, ln.newNo) : undefined;
+  const worstSeverity = finding?.findings[0]?.severity;
 
   return (
     <div
+      id={anchorId}
       style={cs.rowWrap}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
     >
-      <div style={lineRowFor(ln.kind)}>
+      <div
+        style={{
+          ...lineRowFor(ln.kind),
+          ...(worstSeverity ? severityAccentStyle(SEV[worstSeverity].c) : undefined),
+          ...(highlighted ? s.lineHighlight : undefined),
+        }}
+      >
         <span className="mono tnum" style={{ ...s.lineNo, position: "relative" }}>
           {showAdd && target && (
             <button
@@ -62,6 +90,7 @@ export function CodeLine({
         <span className="mono" style={s.lineText}>
           {ln.text || " "}
         </span>
+        {finding && <FindingsPeekBadge finding={finding} onClick={onFindingBadgeClick} />}
       </div>
 
       {commenting &&

@@ -1,5 +1,6 @@
 import type {
   Finding,
+  Intent,
   LLMProvider,
   PromptAssembly,
   Review,
@@ -71,6 +72,14 @@ export interface ReviewInput {
   /** PR author's description/body (untrusted; truncated + delimiter-wrapped in
       the prompt). Empty/undefined → section omitted. */
   prDescription?: string;
+  /**
+   * Derived PR intent/scope (summary + in_scope/out_of_scope), computed by a
+   * separate cheap-model classifier before the review runs. Untrusted (LLM-
+   * derived, same trust tier as `callers`/`repoMap`) — delimiter-wrapped
+   * downstream, with a trusted scope-discipline instruction alongside it.
+   * Undefined → section omitted (no assembly/token-count change).
+   */
+  intent?: Intent;
   /** Task framing line, e.g. "Review PR #482 …". */
   task?: string;
   /** Override the structured-output retry budget. */
@@ -135,6 +144,7 @@ export async function reviewPullRequest(input: ReviewInput): Promise<ReviewOutco
     callers: input.callers,
     repoMap: input.repoMap,
     prDescription: input.prDescription,
+    intent: input.intent,
     task: input.task,
   };
 

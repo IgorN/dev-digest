@@ -25,7 +25,8 @@ before reading code — they're curated and may already answer it.
 - `src/vendor/shared/` — vendored contracts; the client copy must stay in sync.
 - `src/db/migrations/` — generated SQL. Schema change → `pnpm db:generate` →
   `pnpm db:migrate`. Migrations are NOT applied on boot. Don't hand-edit SQL.
-- `server/package.json` — `git skip-worktree`; don't rely on uncommitted scripts.
+- `server/package.json` — may be `git skip-worktree` (per-clone flag; verify with
+  `git ls-files -v server/package.json`, `S` = set); don't rely on uncommitted scripts.
 
 ## Use when
 - Overview, commands, route/API map → `server/README.md`

@@ -48,6 +48,9 @@ export const PromptAssembly = z.object({
   repo_map: z.string().nullish(),
   /** PR author's description/body (truncated); null when absent. */
   pr_description: z.string().nullish(),
+  /** Rendered Intent section (summary + in/out of scope); null when no
+      intent has been computed for this PR yet. */
+  intent: z.string().nullish(),
   user: z.string(),
 });
 export type PromptAssembly = z.infer<typeof PromptAssembly>;

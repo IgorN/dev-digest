@@ -6,8 +6,8 @@ import React from "react";
 import { useTranslations } from "next-intl";
 import { Icon } from "@devdigest/ui";
 import type { PrFile } from "@/lib/types";
-import { AUTO_EXPAND_MAX_LINES } from "../constants";
-import { parsePatch, type Line } from "../helpers";
+import { AUTO_EXPAND_MAX_LINES, LINE_HIGHLIGHT_MS } from "../constants";
+import { parsePatch, diffLineElementId, type Line, type LineFinding } from "../helpers";
 import {
   buildThreads,
   keysForLine,
@@ -30,12 +30,74 @@ function threadsForLine(ln: Line, matched: Map<string, CommentThread[]>): Commen
   return out;
 }
 
-export function FileCard({ file, commenting }: { file: PrFile; commenting?: DiffCommentApi }) {
+export function FileCard({
+  file,
+  commenting,
+  findingsLabel,
+  onFindingsClick,
+  targetLine = null,
+  targetNonce = 0,
+  lineFindings,
+  onFocusFinding,
+}: {
+  file: PrFile;
+  commenting?: DiffCommentApi;
+  /** Pre-formatted "N finding-lines" text; renders a clickable badge in the
+     header when set. The caller owns the copy/i18n (Smart Diff's
+     `prReview.smartDiff.findingLines`) so FileCard stays domain-agnostic —
+     it's also used by the plain flat DiffViewer, which never passes this. */
+  findingsLabel?: string;
+  /** Fired when the findings badge is clicked (Smart Diff wires this to its
+     own click-to-line handler; FileCard doesn't need to know the actual
+     finding line numbers, just that a click happened). */
+  onFindingsClick?: () => void;
+  /** External "jump to this line" instruction (new/current-file line number).
+     Forces the card open and scrolls+highlights that line once it's
+     rendered. Bump targetNonce to re-trigger the same line — mirrors
+     ReviewRunAccordion's targetRunId/targetNonce pattern. */
+  targetLine?: number | null;
+  targetNonce?: number;
+  /** current-file line -> that line's severity/tooltip; renders a small
+     inline badge + left-edge accent + hover tooltip per matching row.
+     Ignored by the flat DiffViewer, which never passes this. */
+  lineFindings?: Map<number, LineFinding>;
+  /** Fired with a finding's id when a per-line severity badge is clicked —
+     forwarded straight through to every CodeLine; the caller (Smart Diff)
+     bubbles it up to a Findings-tab jump. Ignored by the flat DiffViewer. */
+  onFocusFinding?: (findingId: string) => void;
+}) {
   const t = useTranslations("shell");
   const [open, setOpen] = React.useState(
-    (file.additions ?? 0) + (file.deletions ?? 0) <= AUTO_EXPAND_MAX_LINES
+    targetLine != null || (file.additions ?? 0) + (file.deletions ?? 0) <= AUTO_EXPAND_MAX_LINES
   );
+  const [highlightLine, setHighlightLine] = React.useState<number | null>(null);
+  const pendingScrollLine = React.useRef<number | null>(null);
   const lines = React.useMemo(() => parsePatch(file.patch), [file.patch]);
+
+  // A click-to-line instruction arrived (or was re-fired via targetNonce):
+  // force the card open and remember which line to jump to once it's mounted.
+  React.useEffect(() => {
+    if (targetLine == null) return;
+    pendingScrollLine.current = targetLine;
+    setOpen(true);
+  }, [targetLine, targetNonce]);
+
+  // Once the body reflects `open`, the target row (if any) actually exists in
+  // the DOM — scroll it into view and flash-highlight it briefly. Re-runs
+  // (harmlessly) whenever a new instruction arrives, whether or not `open`
+  // itself changed, so re-clicking an already-open file's badge still jumps.
+  React.useEffect(() => {
+    if (!open || pendingScrollLine.current == null) return;
+    const line = pendingScrollLine.current;
+    pendingScrollLine.current = null;
+    const el = document.getElementById(diffLineElementId(file.path, line));
+    // "smooth" doesn't animate reliably on AppShell's inner <main> scroll
+    // container (see FindingCard's own scrollIntoView for the same fix).
+    el?.scrollIntoView?.({ behavior: "auto", block: "center" });
+    setHighlightLine(line);
+    const timer = setTimeout(() => setHighlightLine(null), LINE_HIGHLIGHT_MS);
+    return () => clearTimeout(timer);
+  }, [open, targetLine, targetNonce, file.path]);
 
   // Group this file's comments into threads, then split into ones we can anchor
   // to a rendered line vs. "outdated" (GitHub dropped the line / it's not here).
@@ -64,6 +126,40 @@ export function FileCard({ file, commenting }: { file: PrFile; commenting?: Diff
           <span style={s.addText}>+{file.additions}</span>{" "}
           <span style={s.delText}>−{file.deletions}</span>
         </span>
+        {findingsLabel && (
+          <button
+            type="button"
+            onClick={(e) => {
+              // Don't let this bubble to the header's own open/close toggle —
+              // an already-open card must stay open when its badge is clicked.
+              e.stopPropagation();
+              onFindingsClick?.();
+            }}
+            aria-label={findingsLabel}
+            title={findingsLabel}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 4,
+              fontSize: 12,
+              fontWeight: 600,
+              // Neutral, deliberately NOT one of the severity colours (this
+              // badge is a mixed-severity COUNT, not itself a severity — using
+              // e.g. --warn here reads as "this file is a warning", which
+              // isn't what it means, and collides with the real per-line
+              // Warning chips below it).
+              color: "var(--info)",
+              background: "var(--bg-hover)",
+              border: "none",
+              borderRadius: 5,
+              padding: "2px 8px",
+              cursor: "pointer",
+            }}
+          >
+            <Icon.AlertOctagon size={12} />
+            {findingsLabel}
+          </button>
+        )}
         {commentCount > 0 && (
           <span
             style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, color: "var(--text-muted)" }}
@@ -85,6 +181,9 @@ export function FileCard({ file, commenting }: { file: PrFile; commenting?: Diff
                 path={file.path}
                 threads={threadsForLine(ln, matched)}
                 commenting={commenting}
+                highlighted={highlightLine != null && ln.newNo === highlightLine}
+                finding={ln.newNo != null ? lineFindings?.get(ln.newNo) : undefined}
+                onFindingBadgeClick={ln.newNo != null ? onFocusFinding : undefined}
               />
             ))
           )}

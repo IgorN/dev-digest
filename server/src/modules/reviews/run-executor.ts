@@ -1,5 +1,5 @@
 import type { Container } from '../../platform/container.js';
-import type { Provider, Review, RunTrace, UnifiedDiff } from '@devdigest/shared';
+import type { Intent, Provider, Review, RunTrace, UnifiedDiff } from '@devdigest/shared';
 import { reviewPullRequest, countBlockers } from '@devdigest/reviewer-core';
 import { RunLogger } from '../../platform/run-logger.js';
 import * as schema from '../../db/schema.js';
@@ -104,6 +104,20 @@ export class ReviewRunExecutor {
     }
     runLog.info(`Diff ready — ${diff.files.length} changed file(s); starting ${jobs.length} agent run(s)`);
 
+    // Intent — read-only lookup of a previously-computed Intent (never
+    // triggers recompute; recompute is only the explicit
+    // POST /pulls/:id/intent/recompute route). Undefined when no intent has
+    // been computed yet for this PR, or on any lookup error — best-effort,
+    // like the other enrichment digests below, so a DB hiccup here never
+    // fails the review.
+    let intent: Intent | undefined;
+    try {
+      intent = await this.repo.getIntent(pull.id);
+      if (intent) runLog.info('Intent loaded — prompt will include a scoped ## Intent section');
+    } catch (err) {
+      runLog.info(`Intent lookup failed — proceeding without it: ${(err as Error).message}`);
+    }
+
     for (const { agent, runId } of jobs) {
       const agentStart = Date.now();
       logger?.info(
@@ -111,7 +125,7 @@ export class ReviewRunExecutor {
         `review: agent "${agent.name}" started (${agent.provider}/${agent.model})`,
       );
       try {
-        const outcome = await this.runOneAgent(workspaceId, pull, repo, diff, agent, runId, runLog);
+        const outcome = await this.runOneAgent(workspaceId, pull, repo, diff, agent, runId, runLog, intent);
         logger?.info(
           {
             runId,
@@ -143,6 +157,7 @@ export class ReviewRunExecutor {
     agent: AgentRow,
     runId: string,
     parentLog: RunLogger,
+    intent: Intent | undefined,
   ): Promise<RunOutcome> {
     const start = Date.now();
     // Narrow the fanned-out pre-work logger to THIS run; the shared diff/intent
@@ -221,6 +236,10 @@ export class ReviewRunExecutor {
         // PR author's description/body — untrusted; assemblePrompt wraps +
         // truncates it. Omitted when the PR has no body.
         ...(pull.body ? { prDescription: pull.body } : {}),
+        // Intent — read-only lookup above (never recomputed here); omitted
+        // when no intent has been computed yet for this PR, so the prompt
+        // (and token count) is identical to the pre-intent baseline.
+        ...(intent ? { intent } : {}),
         task,
         sessionId: `${repo.owner}/${repo.name}#${pull.number}:${agent.name}`,
         onEvent: (e) => runLog.event(e.kind, e.msg, e.data),

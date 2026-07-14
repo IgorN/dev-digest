@@ -67,6 +67,16 @@ export default function PRDetailPage() {
   };
   const setTab = (t: string) => setParam("tab", t);
 
+  // Smart Diff's per-line severity badge -> Findings tab, scrolled to and
+  // expanded on the matching FindingCard. A local nonce (not a URL param,
+  // like ReviewRunAccordion's own targetRunId/targetNonce) re-triggers the
+  // jump even when the same finding is clicked twice in a row.
+  const [focusFinding, setFocusFinding] = React.useState<{ id: string; n: number } | null>(null);
+  const handleFocusFinding = (findingId: string) => {
+    setTab("findings");
+    setFocusFinding((p) => ({ id: findingId, n: (p?.n ?? 0) + 1 }));
+  };
+
   // Reviews come newest-first; each is its own run (grouped into accordions).
   const runs = reviews ?? [];
   const allFindings: FindingRecord[] = React.useMemo(
@@ -134,7 +144,7 @@ export default function PRDetailPage() {
       />
 
       <div style={{ padding: "24px 32px 44px", display: "flex", flexDirection: "column", gap: 24, maxWidth: 1080, margin: "0 auto" }}>
-        {tab === "overview" && <OverviewTab prBody={pr.body} />}
+        {tab === "overview" && <OverviewTab prBody={pr.body} prId={prId} />}
 
         {tab === "findings" && (
           <FindingsTab
@@ -148,6 +158,8 @@ export default function PRDetailPage() {
             repoFullName={repoFullName}
             headSha={pr.head_sha}
             cancelMutation={cancel}
+            targetFindingId={focusFinding?.id ?? null}
+            targetFindingNonce={focusFinding?.n ?? 0}
             onOpenTrace={(id) => setParam("trace", id)}
             onDelete={(id) => {
               if (window.confirm("Delete this run from history? (its logs are removed too)"))
@@ -166,7 +178,9 @@ export default function PRDetailPage() {
             prId={prId}
             filesCount={pr.files_count}
             files={pr.files}
+            reviews={runs}
             canComment={pr.status === "open"}
+            onFocusFinding={handleFocusFinding}
           />
         )}
       </div>

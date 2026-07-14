@@ -32,6 +32,8 @@ export function ReviewRunAccordion({
   headSha,
   targetRunId = null,
   targetNonce = 0,
+  targetFindingId = null,
+  targetFindingNonce = 0,
   runSummary,
   severityFilter = null,
 }: {
@@ -44,6 +46,11 @@ export function ReviewRunAccordion({
    *  (driven from the Timeline: clicking an agent name navigates here). */
   targetRunId?: string | null;
   targetNonce?: number;
+  /** When this matches one of review.findings' ids, the accordion opens and
+   *  scrolls into view too (driven from Smart Diff's per-line badge click) —
+   *  forwarded to FindingsPanel so the specific FindingCard also expands. */
+  targetFindingId?: string | null;
+  targetFindingNonce?: number;
   /** RunSummary for this review's run — provides cost/token data for the badge. */
   runSummary?: RunSummary | null;
   /** PR-page severity filter — forwarded to FindingsPanel (null = show all). */
@@ -52,12 +59,15 @@ export function ReviewRunAccordion({
   const [open, setOpen] = React.useState(defaultOpen);
   const rootRef = React.useRef<HTMLDivElement | null>(null);
   React.useEffect(() => {
-    if (review.run_id && review.run_id === targetRunId) {
+    const findingHere = targetFindingId != null && review.findings.some((f) => f.id === targetFindingId);
+    if ((review.run_id && review.run_id === targetRunId) || findingHere) {
       setOpen(true);
-      rootRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      // "smooth" doesn't animate reliably on AppShell's inner <main> scroll
+      // container (see FindingCard's own scrollIntoView for the same fix).
+      rootRef.current?.scrollIntoView({ behavior: "auto", block: "start" });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [targetRunId, targetNonce, review.run_id]);
+  }, [targetRunId, targetNonce, targetFindingId, targetFindingNonce, review.run_id]);
   const del = useDeleteReview(prId);
   const findings = review.findings;
   const blockers = findings.filter((f) => f.severity === "CRITICAL" && !f.dismissed_at).length;
@@ -168,6 +178,8 @@ export function ReviewRunAccordion({
             repoFullName={repoFullName}
             headSha={headSha}
             severityFilter={severityFilter}
+            targetFindingId={targetFindingId}
+            targetFindingNonce={targetFindingNonce}
           />
         </div>
       )}
