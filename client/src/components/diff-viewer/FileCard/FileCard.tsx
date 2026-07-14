@@ -38,6 +38,7 @@ export function FileCard({
   targetLine = null,
   targetNonce = 0,
   lineFindings,
+  onFocusFinding,
 }: {
   file: PrFile;
   commenting?: DiffCommentApi;
@@ -60,6 +61,10 @@ export function FileCard({
      inline badge + left-edge accent + hover tooltip per matching row.
      Ignored by the flat DiffViewer, which never passes this. */
   lineFindings?: Map<number, LineFinding>;
+  /** Fired with a finding's id when a per-line severity badge is clicked —
+     forwarded straight through to every CodeLine; the caller (Smart Diff)
+     bubbles it up to a Findings-tab jump. Ignored by the flat DiffViewer. */
+  onFocusFinding?: (findingId: string) => void;
 }) {
   const t = useTranslations("shell");
   const [open, setOpen] = React.useState(
@@ -86,20 +91,13 @@ export function FileCard({
     const line = pendingScrollLine.current;
     pendingScrollLine.current = null;
     const el = document.getElementById(diffLineElementId(file.path, line));
-    el?.scrollIntoView?.({ behavior: "smooth", block: "center" });
+    // "smooth" doesn't animate reliably on AppShell's inner <main> scroll
+    // container (see FindingCard's own scrollIntoView for the same fix).
+    el?.scrollIntoView?.({ behavior: "auto", block: "center" });
     setHighlightLine(line);
     const timer = setTimeout(() => setHighlightLine(null), LINE_HIGHLIGHT_MS);
     return () => clearTimeout(timer);
   }, [open, targetLine, targetNonce, file.path]);
-
-  // A per-line severity badge is clicked directly (already on-screen, no
-  // scroll/expand needed) — just re-flash it, so clicking anything that
-  // looks like a badge visibly confirms it did something, matching the
-  // header findings badge's own click feedback.
-  function flashLine(line: number) {
-    setHighlightLine(line);
-    window.setTimeout(() => setHighlightLine((cur) => (cur === line ? null : cur)), LINE_HIGHLIGHT_MS);
-  }
 
   // Group this file's comments into threads, then split into ones we can anchor
   // to a rendered line vs. "outdated" (GitHub dropped the line / it's not here).
@@ -185,7 +183,7 @@ export function FileCard({
                 commenting={commenting}
                 highlighted={highlightLine != null && ln.newNo === highlightLine}
                 finding={ln.newNo != null ? lineFindings?.get(ln.newNo) : undefined}
-                onFindingBadgeClick={ln.newNo != null ? () => flashLine(ln.newNo!) : undefined}
+                onFindingBadgeClick={ln.newNo != null ? onFocusFinding : undefined}
               />
             ))
           )}

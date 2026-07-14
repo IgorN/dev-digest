@@ -18,6 +18,8 @@ export function FindingsPanel({
   repoFullName,
   headSha,
   severityFilter = null,
+  targetFindingId = null,
+  targetFindingNonce = 0,
 }: {
   findings: FindingRecord[];
   prId: string;
@@ -25,6 +27,10 @@ export function FindingsPanel({
   headSha?: string | null;
   /** When set, only findings of this severity are shown (PR-page severity filter). */
   severityFilter?: string | null;
+  /** Set from Smart Diff's per-line badge click: force-expands + scrolls to
+     the matching FindingCard and moves keyboard focus (j/k) onto it. */
+  targetFindingId?: string | null;
+  targetFindingNonce?: number;
 }) {
   const t = useTranslations("prReview");
   const action = useFindingAction();
@@ -35,6 +41,15 @@ export function FindingsPanel({
     () => visibleFindings(findings, hideLow, severityFilter),
     [findings, hideLow, severityFilter],
   );
+
+  // A Smart Diff badge click landed on a finding in THIS run — move keyboard
+  // focus onto its card too, so the focused-card border/glow matches the one
+  // that's about to force-expand (below), not whatever j/k last left it on.
+  React.useEffect(() => {
+    if (targetFindingId == null) return;
+    const idx = shown.findIndex((f) => f.id === targetFindingId);
+    if (idx >= 0) setFocusIdx(idx);
+  }, [targetFindingId, targetFindingNonce, shown]);
 
   // j/k navigation + a/d shortcuts on the focused finding (keyboard).
   React.useEffect(() => {
@@ -73,6 +88,7 @@ export function FindingsPanel({
               pending={action.isPending}
               repoFullName={repoFullName}
               headSha={headSha}
+              forceExpandNonce={f.id === targetFindingId ? targetFindingNonce : undefined}
               onAction={(act) => action.mutate({ findingId: f.id, action: act, prId })}
             />
           ))

@@ -4,8 +4,11 @@
    own hover-peek (same card layout, same `position: fixed` + short
    close-delay mechanics, escaping any ancestor `overflow: hidden`) rather
    than the previous plain `title`-attribute tooltip, which had an
-   unpredictable, OS-controlled hover delay and no formatting. Clicking the
-   badge itself re-flashes its own row (see FileCard's flashLine). */
+   unpredictable, OS-controlled hover delay and no formatting. The hover
+   preview is a supplement, not a replacement for navigation: clicking the
+   badge (or one of the popover's own finding rows) calls `onClick` with that
+   finding's id — the caller (FileCard → ... → page.tsx) uses it to jump to
+   the Findings tab with the matching FindingCard expanded. */
 "use client";
 
 import React from "react";
@@ -32,7 +35,16 @@ const peekStyle: React.CSSProperties = {
   textAlign: "left",
 };
 
-export function FindingsPeekBadge({ finding, onClick }: { finding: LineFinding; onClick?: () => void }) {
+export function FindingsPeekBadge({
+  finding,
+  onClick,
+}: {
+  finding: LineFinding;
+  /** Fired with the clicked finding's id — the badge itself reports the
+     worst (first) finding; an individual row inside the popover reports its
+     own. */
+  onClick?: (findingId: string) => void;
+}) {
   const [open, setOpen] = React.useState(false);
   const [pos, setPos] = React.useState({ top: 0, left: 0 });
   const closeTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -72,7 +84,7 @@ export function FindingsPeekBadge({ finding, onClick }: { finding: LineFinding; 
         type="button"
         onMouseEnter={handleEnter}
         onMouseLeave={scheduleClose}
-        onClick={onClick}
+        onClick={() => onClick?.(worst.id)}
         aria-label={`${finding.findings.length} finding${finding.findings.length === 1 ? "" : "s"}, worst severity ${meta.label}`}
         style={severityBadgeStyle(meta.c, meta.bg)}
       >
@@ -92,7 +104,15 @@ export function FindingsPeekBadge({ finding, onClick }: { finding: LineFinding; 
             const FIcon = Icon[fMeta.icon];
             const cat = CAT[f.category];
             return (
-              <div key={f.id} style={{ padding: "8px 0", borderTop: i === 0 ? "none" : "1px solid var(--border)" }}>
+              <div
+                key={f.id}
+                onClick={() => onClick?.(f.id)}
+                style={{
+                  padding: "8px 0",
+                  borderTop: i === 0 ? "none" : "1px solid var(--border)",
+                  cursor: onClick ? "pointer" : "default",
+                }}
+              >
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <FIcon size={14} style={{ color: fMeta.c, flexShrink: 0 }} />
                   <span style={{ fontWeight: 600, fontSize: 13, color: "var(--text-primary)" }}>{f.title}</span>

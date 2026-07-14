@@ -22,6 +22,11 @@ interface FindingsTabProps {
   /** owner/repo + head sha — used to deep-link a finding's file:line to GitHub. */
   repoFullName?: string | null;
   headSha?: string | null;
+  /** Set from Smart Diff's per-line badge click (via the page): opens the
+     owning run's accordion and force-expands + scrolls to that finding's
+     FindingCard. Bump the nonce to re-trigger the same finding twice. */
+  targetFindingId?: string | null;
+  targetFindingNonce?: number;
   onOpenTrace: (id: string) => void;
   onDelete: (id: string) => void;
   onRunDone: () => void;
@@ -38,6 +43,8 @@ export function FindingsTab({
   cancelMutation,
   repoFullName,
   headSha,
+  targetFindingId = null,
+  targetFindingNonce = 0,
   onOpenTrace,
   onDelete,
   onRunDone,
@@ -198,6 +205,8 @@ export function FindingsTab({
             headSha={headSha}
             targetRunId={target?.runId ?? null}
             targetNonce={target?.n ?? 0}
+            targetFindingId={targetFindingId}
+            targetFindingNonce={targetFindingNonce}
             runSummary={review.run_id ? (runSummaryByRunId.get(review.run_id) ?? null) : null}
             severityFilter={activeSeverity}
           />

@@ -26,6 +26,7 @@ export function RoleGroup({
   jumpTarget,
   onFindingsClick,
   lineFindings,
+  onFocusFinding,
 }: {
   role: SmartDiffRole;
   joined: JoinedFile[];
@@ -40,6 +41,8 @@ export function RoleGroup({
      decision A still holds: no AI summaries — this is real, already-computed
      finding data, not a new LLM call). */
   lineFindings: Map<string, Map<number, LineFinding>>;
+  /** Forwarded straight through to every FileCard — see SmartDiffViewer. */
+  onFocusFinding?: (findingId: string) => void;
 }) {
   const t = useTranslations("prReview");
   const RoleIcon = Icon[ROLE_ICON[role]];
@@ -90,6 +93,7 @@ export function RoleGroup({
               targetLine={jumpTarget?.path === smart.path ? jumpTarget.line : null}
               targetNonce={jumpTarget?.path === smart.path ? jumpTarget.nonce : 0}
               lineFindings={lineFindings.get(smart.path)}
+              onFocusFinding={onFocusFinding}
             />
           ))}
         </div>

@@ -26,6 +26,7 @@ export function SmartDiffViewer({
   files,
   reviews,
   commenting,
+  onFocusFinding,
 }: {
   data: SmartDiff;
   /** The PR's full file list — SmartDiffFile carries no `patch`, so it's
@@ -37,6 +38,11 @@ export function SmartDiffViewer({
      (the SmartDiff response), never recomputed from this. */
   reviews: ReviewRecord[];
   commenting?: DiffCommentApi;
+  /** Fired with a finding's id when a per-line severity badge is clicked —
+     forwarded straight through to every FileCard/CodeLine; the page uses it
+     to switch to the Findings tab with that finding's card expanded. Hover
+     stays a separate, always-available preview (see FindingsPeekBadge). */
+  onFocusFinding?: (findingId: string) => void;
 }) {
   const t = useTranslations("shell");
   const [boilerplateOpen, setBoilerplateOpen] = React.useState(false);
@@ -90,6 +96,7 @@ export function SmartDiffViewer({
             jumpTarget={jumpTarget}
             onFindingsClick={(file) => handleFindingsClick(role, file)}
             lineFindings={lineFindings}
+            onFocusFinding={onFocusFinding}
           />
         )
       )}

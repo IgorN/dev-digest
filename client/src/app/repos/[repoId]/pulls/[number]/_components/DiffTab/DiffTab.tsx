@@ -20,9 +20,14 @@ interface DiffTabProps {
   reviews: ReviewRecord[];
   /** Inline commenting is offered only on open PRs (GitHub rejects otherwise). */
   canComment?: boolean;
+  /** Fired with a finding's id when a Smart Diff per-line severity badge is
+     clicked — the page uses it to switch to the Findings tab with that
+     finding's card expanded. Ignored by the flat DiffViewer fallback, which
+     never renders a severity badge. */
+  onFocusFinding?: (findingId: string) => void;
 }
 
-export function DiffTab({ prId, filesCount, files, reviews, canComment }: DiffTabProps) {
+export function DiffTab({ prId, filesCount, files, reviews, canComment, onFocusFinding }: DiffTabProps) {
   const t = useTranslations("prReview");
   const { data: comments } = usePrComments(prId);
   const create = useCreatePrComment(prId);
@@ -76,7 +81,13 @@ export function DiffTab({ prId, filesCount, files, reviews, canComment }: DiffTa
         {showSmart ? t("smartDiff.groupedByRole") : `Files changed · ${filesCount} files`}
       </SectionLabel>
       {showSmart && smartDiff ? (
-        <SmartDiffViewer data={smartDiff} files={files} reviews={reviews} commenting={commenting} />
+        <SmartDiffViewer
+          data={smartDiff}
+          files={files}
+          reviews={reviews}
+          commenting={commenting}
+          onFocusFinding={onFocusFinding}
+        />
       ) : (
         <DiffViewer files={files} commenting={commenting} />
       )}

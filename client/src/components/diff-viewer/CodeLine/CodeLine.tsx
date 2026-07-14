@@ -32,10 +32,10 @@ export function CodeLine({
      colour accent and a hover-peek badge (mirrors `FindingsSummary`'s
      popover). Ignored by the flat DiffViewer, which never passes it. */
   finding?: LineFinding;
-  /** Fired when the severity badge itself is clicked — re-flashes this same
-     row so a click always visibly confirms it did something (this row is
-     already on-screen, so there's nowhere to scroll to). */
-  onFindingBadgeClick?: () => void;
+  /** Fired with a finding's id when the severity badge (or one of its hover
+     popover's rows) is clicked — the caller navigates to that finding in the
+     Findings tab. */
+  onFindingBadgeClick?: (findingId: string) => void;
 }) {
   const [hover, setHover] = React.useState(false);
   const [composing, setComposing] = React.useState(false);

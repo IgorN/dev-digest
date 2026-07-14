@@ -31,6 +31,7 @@ export function FindingCard({
   pending,
   repoFullName,
   headSha,
+  forceExpandNonce,
 }: {
   f: FindingRecord;
   focused?: boolean;
@@ -39,9 +40,25 @@ export function FindingCard({
   pending?: boolean;
   repoFullName?: string | null;
   headSha?: string | null;
+  /** Bumping this (to any new value) force-expands this card and scrolls it
+     into view — set by FindingsPanel only on the ONE card matching a Smart
+     Diff badge click's target finding id; every other card gets `undefined`,
+     which never changes, so its effect never fires. */
+  forceExpandNonce?: number;
 }) {
   const t = useTranslations("prReview");
   const [expanded, setExpanded] = React.useState(defaultExpanded ?? false);
+  const rootRef = React.useRef<HTMLDivElement | null>(null);
+  React.useEffect(() => {
+    if (forceExpandNonce == null) return;
+    setExpanded(true);
+    // `behavior: "smooth"` silently no-ops here: the scrollable ancestor is
+    // AppShell's inner <main> (overflow-y: auto), not the window/documentElement,
+    // and this nested-container + concurrent-React-render combination doesn't
+    // reliably animate in this app (verified: "auto" always lands correctly,
+    // "smooth" — even deferred a frame — stays put).
+    rootRef.current?.scrollIntoView({ behavior: "auto", block: "center" });
+  }, [forceExpandNonce]);
   const sevColor = SEV_COLOR[f.severity] ?? SEV_COLOR_FALLBACK;
   const fileHref =
     repoFullName && headSha
@@ -52,7 +69,7 @@ export function FindingCard({
   const muted = accepted || dismissed;
 
   return (
-    <div data-finding-id={f.id} style={s.card(!!focused, sevColor, muted)}>
+    <div ref={rootRef} data-finding-id={f.id} style={s.card(!!focused, sevColor, muted)}>
       <div onClick={() => setExpanded((e) => !e)} style={s.header}>
         <div style={s.badgeWrap}>
           <SeverityBadge severity={f.severity as Severity} compact />
