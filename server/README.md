@@ -84,6 +84,12 @@ flowchart TB
   HEALTH["/health (liveness) · /health/ready (DB ping → 200/503)"]
 ```
 
+`../mcp-server/` is a separate, standalone package that consumes a slice of
+this API (`/agents`, `/pulls/:id/review`, `/pulls/:id/reviews`,
+`/repos/:id/conventions`) as MCP tools for local use in an MCP client. It is
+not started by this package and has its own lifecycle — see
+`mcp-server/README.md`.
+
 ## Environment
 
 `server/.env` (copied from `.env.example`):
