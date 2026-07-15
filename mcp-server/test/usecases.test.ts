@@ -13,7 +13,15 @@ const noopSleep = async () => {};
 function seedRepoAndAgent(api: FakeDevDigestApi) {
   api.repos = [{ id: 'repo-1', owner: 'owner', name: 'repo', full_name: 'owner/repo' }];
   api.agents = [
-    { id: 'agent-1', name: 'Strict Reviewer', description: 'd', provider: 'anthropic', model: 'm', enabled: true },
+    {
+      id: 'agent-1',
+      name: 'Strict Reviewer',
+      description: 'd',
+      provider: 'anthropic',
+      model: 'm',
+      enabled: true,
+      system_prompt: 'p',
+    },
   ];
   api.pulls['repo-1'] = [{ id: 'pr-1', number: 42, title: 'Add feature' }];
 }
@@ -22,8 +30,8 @@ describe('list_agents use-case', () => {
   it('returns only enabled agents by default, narrowed', async () => {
     const api = new FakeDevDigestApi();
     api.agents = [
-      { id: 'a1', name: 'On', description: 'd', provider: 'anthropic', model: 'm', enabled: true },
-      { id: 'a2', name: 'Off', description: 'd', provider: 'anthropic', model: 'm', enabled: false },
+      { id: 'a1', name: 'On', description: 'd', provider: 'anthropic', model: 'm', enabled: true, system_prompt: 'p' },
+      { id: 'a2', name: 'Off', description: 'd', provider: 'anthropic', model: 'm', enabled: false, system_prompt: 'p' },
     ];
     const listAgents = makeListAgentsUseCase({ api });
     const result = await listAgents({});

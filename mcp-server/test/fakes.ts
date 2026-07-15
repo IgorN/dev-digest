@@ -4,6 +4,61 @@ import type { Repo, PrMeta } from '../src/vendor/shared/platform.js';
 import type { RunSummary } from '../src/vendor/shared/run.js';
 import type { ReviewRecord } from '../src/vendor/shared/findings.js';
 import type { ConventionCandidate } from '../src/vendor/shared/knowledge.js';
+import type {
+  LLMProvider,
+  ModelInfo,
+  CompletionRequest,
+  CompletionResult,
+  StructuredRequest,
+  StructuredResult,
+} from '@devdigest/shared';
+import type { GitClient } from '../src/ports/git.js';
+
+/** Minimal fake `LLMProvider` for exercising the REAL `reviewPullRequest`
+ *  engine end-to-end (same philosophy as reviewer-core's own tests: a
+ *  stubbed provider, no keys/network) — only `completeStructured` is
+ *  implemented, matching the real `OpenRouterProvider`'s own contract
+ *  (`complete()` is an intentional throwing stub there too). */
+export class FakeLLMProvider implements LLMProvider {
+  readonly id = 'openrouter' as const;
+  calls: StructuredRequest<unknown>[] = [];
+
+  constructor(private readonly structuredData: unknown) {}
+
+  async listModels(): Promise<ModelInfo[]> {
+    throw new Error('FakeLLMProvider.listModels not implemented');
+  }
+
+  async complete(_req: CompletionRequest): Promise<CompletionResult> {
+    throw new Error('FakeLLMProvider.complete not implemented — use completeStructured');
+  }
+
+  async completeStructured<T>(req: StructuredRequest<T>): Promise<StructuredResult<T>> {
+    this.calls.push(req as StructuredRequest<unknown>);
+    return {
+      data: this.structuredData as T,
+      model: req.model,
+      tokensIn: 100,
+      tokensOut: 50,
+      costUsd: 0.001,
+      raw: JSON.stringify(this.structuredData),
+      attempts: 1,
+    };
+  }
+
+  async embed(_texts: string[]): Promise<number[][]> {
+    throw new Error('FakeLLMProvider.embed not implemented');
+  }
+}
+
+/** In-memory fake of the `GitClient` port. */
+export class FakeGitClient implements GitClient {
+  diffByCwd: Record<string, string> = {};
+
+  async workingTreeDiff(cwd: string): Promise<string> {
+    return this.diffByCwd[cwd] ?? '';
+  }
+}
 
 /** In-memory fake of the `DevDigestApi` port for unit/integration tests —
  *  no fetch, no server required. */

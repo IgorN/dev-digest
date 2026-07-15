@@ -17,7 +17,19 @@
     "composite": false,
     "outDir": "dist",
     "types": ["node"],
-    "lib": ["ES2022"]
+    "lib": ["ES2022"],
+    "baseUrl": ".",
+    "paths": {
+      "@devdigest/reviewer-core": ["../reviewer-core/src/index.ts"],
+      "@devdigest/reviewer-core/*": ["../reviewer-core/src/*"],
+      // reviewer-core's own internal imports resolve `@devdigest/shared`
+      // through WHOEVER'S tsconfig pulled it in (TS treats the whole program
+      // as one resolution context) — point it at server's real vendored
+      // copy, exactly like server/tsconfig.json does, so reviewer-core
+      // resolves correctly when consumed from here too.
+      "@devdigest/shared": ["../server/src/vendor/shared/index.ts"],
+      "@devdigest/shared/*": ["../server/src/vendor/shared/*"]
+    }
   },
   "include": ["src/**/*.ts", "test/**/*.ts"]
 }

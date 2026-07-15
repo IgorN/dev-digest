@@ -22,6 +22,55 @@ Inspector, …).
 It talks to the DevDigest HTTP API (`server/`) over `http://localhost:3001`
 by default — it does **not** touch Postgres directly.
 
+## Pre-push CLI: `devdigest review --mode working`
+
+A second, independent entry point in this same package: runs the SAME
+structured-review engine the product uses on GitHub PRs — but against your
+local, **uncommitted** working-tree diff, before anything is pushed.
+
+```sh
+cd mcp-server
+npm install                      # once
+npm link                         # once — makes `devdigest` available globally
+export OPENROUTER_API_KEY=...    # same key configured in Settings
+
+cd /path/to/any/other/repo       # wherever you actually have local changes
+devdigest review --mode working
+```
+
+Without `npm link`, run it directly instead:
+
+```sh
+node /absolute/path/to/mcp-server/bin/devdigest.js review --mode working
+```
+
+**Requirements:**
+- The DevDigest app stack running (`./scripts/dev.sh`) — used ONLY to fetch
+  the real agent's config (system prompt + model); nothing is persisted,
+  no PR/review row is created anywhere.
+- `OPENROUTER_API_KEY` exported in your shell — this CLI has no workspace or
+  secrets-file concept, so it always talks to OpenRouter directly via
+  `reviewer-core`'s own `OpenRouterProvider`.
+- A non-empty `git diff HEAD` in the directory you run it from (staged +
+  unstaged uncommitted changes). Nothing to review → prints a message, exit 0.
+
+**What's reused vs. new:** the diff parser (`src/domain/diff.ts`, ported from
+`server/src/adapters/git/diff-parser.ts` — mcp-server has no path back into
+`server/`) and the agent lookup (the existing `DevDigestApi` port) are the
+only genuinely new pieces. The review itself runs through `reviewer-core`'s
+real `reviewPullRequest`, imported directly via a tsconfig path alias — the
+same mechanism `server/` uses — not a re-implementation.
+
+Defaults to the "General Reviewer" agent (the seeded starter has no agent
+literally named "Structured Reviewer" — that phrase names the engine's
+structured-output architecture, not one specific agent row). `--mode working`
+is the only mode today; `--mode staged` / `--mode branch` are natural
+follow-ons the flag already leaves room for.
+
+Exit codes: `0` success (review printed, or nothing to review), `1` bad CLI
+usage, `2` setup/upstream error (missing key, server unreachable, LLM call
+failed, agent not found).
+
 ## 1. Prerequisites
 
 The DevDigest app stack must be running separately (this package does not
@@ -156,6 +205,10 @@ pnpm test:it     # protocol-level: real McpServer + Client over InMemoryTranspor
 - `test/domain-shape.test.ts` — pure narrowing/filtering/stub-building functions.
 - `test/usecases.test.ts` — all 5 use-cases against `test/fakes.ts`'s `FakeDevDigestApi`.
 - `test/tools.it.test.ts` — exercises the actual MCP wire path (`tools/list`, `tools/call`, `isError`) end to end, still against the fake port.
+- `test/diff.test.ts` — the ported unified-diff parser (`domain/diff.ts`).
+- `test/cli-args.test.ts` — `devdigest review --mode working` argument parsing.
+- `test/format-review.test.ts` — terminal output formatting.
+- `test/review-working-tree.usecase.test.ts` — the pre-push CLI's use-case, calling the REAL `reviewer-core` `reviewPullRequest` engine against a fake `GitClient`/`DevDigestApi`/`LLMProvider` (no keys, no network — same testing philosophy as `reviewer-core`'s own tests).
 
 None of these require the DevDigest app stack or Postgres to be running.
 
@@ -171,3 +224,6 @@ None of these require the DevDigest app stack or Postgres to be running.
 | `get_findings` says `run_not_found` for a run you just started | The MCP server process restarted between the two calls | Known v1 limitation — the `run_id → pr_id` mapping is in-memory only (see `src/app/run-pr-cache.ts`); re-run `run_agent_on_pull_request` |
 | `get_conventions` returns `scanned: false` | Repo has never been scanned for conventions | Run extraction from the DevDigest app itself — this MCP tool deliberately never triggers the expensive extract pass |
 | `429` / rate-limited error on `run_agent_on_pull_request` | Upstream rate limit (10 reviews/min per `POST /pulls/:id/review`) | Wait and retry; don't call this tool in a poll loop — use `get_findings` for polling |
+| `devdigest: command not found` | `npm link` wasn't run (or you're in a different shell/Node version manager) | `cd mcp-server && npm link`, or invoke directly: `node /path/to/mcp-server/bin/devdigest.js review --mode working` |
+| `Cannot find package '@devdigest/reviewer-core'` when running `devdigest` from another repo | tsx resolves tsconfig path aliases relative to the CURRENT directory, not the script's location | Already handled by `bin/devdigest.js` (`--tsconfig` pinned to this package's own `tsconfig.json`) — if you bypass the shim and call `tsx src/cli/main.ts` directly from elsewhere, pass `--tsconfig` yourself |
+| `OPENROUTER_API_KEY is not set` | Not exported in the current shell | `export OPENROUTER_API_KEY=...` — this CLI never reads the app's stored/secrets-file key |

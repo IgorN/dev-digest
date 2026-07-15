@@ -3,9 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Local-only MCP server exposing DevDigest agents/reviews/conventions as MCP tools. Started standalone; never part of the main app/Docker/dev.sh lifecycle.",
+  "description": "Local-only MCP server exposing DevDigest agents/reviews/conventions as MCP tools, plus a `devdigest review --mode working` pre-push CLI. Started standalone; never part of the main app/Docker/dev.sh lifecycle.",
+  "bin": {
+    "devdigest": "bin/devdigest.js"
+  },
   "scripts": {
     "start": "tsx src/main.ts",
+    "review": "tsx src/cli/main.ts",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run --exclude '**/*.it.test.ts'",

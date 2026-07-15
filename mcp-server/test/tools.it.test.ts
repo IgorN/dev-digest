@@ -59,7 +59,15 @@ describe('MCP protocol surface', () => {
   it('list_agents returns structured content with narrowed fields', async () => {
     const { client, api } = await setup();
     api.agents = [
-      { id: 'a1', name: 'Strict Reviewer', description: 'd', provider: 'anthropic', model: 'm', enabled: true },
+      {
+        id: 'a1',
+        name: 'Strict Reviewer',
+        description: 'd',
+        provider: 'anthropic',
+        model: 'm',
+        enabled: true,
+        system_prompt: 'p',
+      },
     ];
     const result = await client.callTool({ name: 'list_agents', arguments: {} });
     expect(result.isError).toBeFalsy();
@@ -71,7 +79,9 @@ describe('MCP protocol surface', () => {
   it('run_agent_on_pull_request -> get_findings round trip when the run finishes fast', async () => {
     const { client, api } = await setup();
     api.repos = [{ id: 'repo-1', owner: 'o', name: 'r', full_name: 'o/r' }];
-    api.agents = [{ id: 'a1', name: 'Reviewer', description: 'd', provider: 'anthropic', model: 'm', enabled: true }];
+    api.agents = [
+      { id: 'a1', name: 'Reviewer', description: 'd', provider: 'anthropic', model: 'm', enabled: true, system_prompt: 'p' },
+    ];
     api.pulls['repo-1'] = [{ id: 'pr-1', number: 5, title: 'PR' }];
     api.completeOnNextPoll = { status: 'done' };
     api.reviews['pr-1'] = [{ run_id: 'run-1', verdict: 'approve', findings: [] }];

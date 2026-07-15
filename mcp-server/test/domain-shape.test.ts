@@ -35,6 +35,7 @@ describe('narrowAgent', () => {
       provider: 'anthropic',
       model: 'claude-x',
       enabled: true,
+      system_prompt: 'You are a strict reviewer.',
     });
     expect(narrowed).toEqual({
       name: 'Strict Reviewer',
