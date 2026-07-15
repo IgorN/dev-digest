@@ -1,7 +1,7 @@
 import { and, eq } from 'drizzle-orm';
 import type { Db } from '../../../db/client.js';
 import * as t from '../../../db/schema.js';
-import type { Intent } from '@devdigest/shared';
+import { BlastRadius, type Intent } from '@devdigest/shared';
 import type { PullRow } from '../../../db/rows.js';
 
 // ---- PR lookup (workspace-scoped) -----------------------------------------
@@ -65,4 +65,26 @@ export async function getIntent(db: Db, prId: string): Promise<Intent | undefine
   const [row] = await db.select().from(t.prIntent).where(eq(t.prIntent.prId, prId));
   if (!row) return undefined;
   return { intent: row.intent, in_scope: row.inScope, out_of_scope: row.outOfScope };
+}
+
+// ---- brief (blast radius) --------------------------------------------------
+// `pr_brief.json` is a single JSON document per PR meant to hold every
+// PrBrief building block that doesn't (yet) have its own dedicated table —
+// unlike Intent, which got one (`pr_intent`). Blast is the first field
+// written into it; read-merge-write keeps room for `risks`/`history` to land
+// as sibling keys later without clobbering blast (or vice versa).
+
+export async function upsertBriefBlast(db: Db, prId: string, blast: BlastRadius): Promise<void> {
+  const [existing] = await db.select().from(t.prBrief).where(eq(t.prBrief.prId, prId));
+  const json = { ...(existing?.json as Record<string, unknown> | undefined), blast };
+  await db
+    .insert(t.prBrief)
+    .values({ prId, json })
+    .onConflictDoUpdate({ target: t.prBrief.prId, set: { json } });
+}
+
+export async function getBriefBlast(db: Db, prId: string): Promise<BlastRadius | undefined> {
+  const [row] = await db.select().from(t.prBrief).where(eq(t.prBrief.prId, prId));
+  const blast = (row?.json as Record<string, unknown> | undefined)?.blast;
+  return blast ? BlastRadius.parse(blast) : undefined;
 }

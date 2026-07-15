@@ -15,6 +15,7 @@ import { Finding } from './findings.js';
 export const FeatureModelId = z.enum([
   'onboarding',
   'review_intent',
+  'blast_radius',
   'risk_brief',
   'conformance',
   'conventions',
@@ -53,6 +54,13 @@ export const FEATURE_MODELS: FeatureModelDef[] = [
     id: 'review_intent',
     label: 'PR Review · Intent',
     description: 'Derives a PR’s intent and scope before review.',
+    defaultProvider: 'openrouter',
+    defaultModel: 'deepseek/deepseek-v4-flash',
+  },
+  {
+    id: 'blast_radius',
+    label: 'PR Review · Blast Radius',
+    description: 'Explains a PR’s blast-radius map (changed symbols, callers, endpoints) in one paragraph.',
     defaultProvider: 'openrouter',
     defaultModel: 'deepseek/deepseek-v4-flash',
   },
