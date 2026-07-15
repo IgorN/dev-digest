@@ -1,15 +1,3 @@
 {
-  "hooks": {
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/engineering-insights-reminder.sh",
-            "timeout": 10
-          }
-        ]
-      }
-    ]
-  }
+  "hooks": {}
 }
