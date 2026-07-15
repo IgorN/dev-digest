@@ -27,6 +27,9 @@ export function SmartDiffViewer({
   reviews,
   commenting,
   onFocusFinding,
+  targetPath,
+  targetLine,
+  targetNonce,
 }: {
   data: SmartDiff;
   /** The PR's full file list — SmartDiffFile carries no `patch`, so it's
@@ -43,6 +46,13 @@ export function SmartDiffViewer({
      to switch to the Findings tab with that finding's card expanded. Hover
      stays a separate, always-available preview (see FindingsPeekBadge). */
   onFocusFinding?: (findingId: string) => void;
+  /** External jump instruction (e.g. a Blast Radius caller click on the
+     Overview tab) — folded into the same internal `jumpTarget` state/nonce
+     that `handleFindingsClick` already drives, so both sources reach the
+     same RoleGroup -> FileCard plumbing. */
+  targetPath?: string | null;
+  targetLine?: number | null;
+  targetNonce?: number;
 }) {
   const t = useTranslations("shell");
   const [boilerplateOpen, setBoilerplateOpen] = React.useState(false);
@@ -60,6 +70,22 @@ export function SmartDiffViewer({
     [data.groups, byPath]
   );
   const lineFindings = React.useMemo(() => buildLineFindings(reviews), [reviews]);
+
+  // Adopt an external jump instruction (Blast Radius) into the same local
+  // jumpTarget/jumpNonce this component already uses for its own per-line
+  // finding-badge clicks — RoleGroup/FileCard don't need to know the source.
+  // If the target file lives in the (collapsed-by-default) boilerplate
+  // section, open that section too, same as handleFindingsClick does.
+  React.useEffect(() => {
+    if (targetPath == null || targetLine == null || !targetNonce) return;
+    const inBoilerplate = joinedGroups.some(
+      (g) => g.role === "boilerplate" && g.joined.some((j) => j.smart.path === targetPath),
+    );
+    if (inBoilerplate) setBoilerplateOpen(true);
+    jumpNonce.current += 1;
+    setJumpTarget({ path: targetPath, line: targetLine, nonce: jumpNonce.current });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [targetPath, targetLine, targetNonce]);
 
   function handleFindingsClick(role: SmartDiffRole, file: SmartDiffFile) {
     if (file.finding_lines.length === 0) return;

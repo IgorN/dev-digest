@@ -14,5 +14,13 @@
   "graph": {
     "empty": "No downstream callers to graph.",
     "ariaLabel": "Blast radius graph"
+  },
+  "degraded": {
+    "badge": "Partial index",
+    "flag_off": "Repo intelligence is disabled for this workspace — showing no map.",
+    "index_failed": "The repo's code index failed to build — this map may be incomplete.",
+    "index_partial": "The repo's code index is only partially built — this map may be incomplete.",
+    "repo_too_large": "This repo is too large for a full index — this map may be incomplete.",
+    "no_data": "No code index is available yet for this repo — showing a best-effort map."
   }
 }

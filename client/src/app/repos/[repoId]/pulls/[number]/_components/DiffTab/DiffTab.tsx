@@ -25,9 +25,25 @@ interface DiffTabProps {
      finding's card expanded. Ignored by the flat DiffViewer fallback, which
      never renders a severity badge. */
   onFocusFinding?: (findingId: string) => void;
+  /** External "jump to this file:line" instruction (e.g. a Blast Radius
+     caller click on the Overview tab). Bump targetNonce to re-trigger the
+     same line. Forwarded to whichever viewer is actually rendered. */
+  targetPath?: string | null;
+  targetLine?: number | null;
+  targetNonce?: number;
 }
 
-export function DiffTab({ prId, filesCount, files, reviews, canComment, onFocusFinding }: DiffTabProps) {
+export function DiffTab({
+  prId,
+  filesCount,
+  files,
+  reviews,
+  canComment,
+  onFocusFinding,
+  targetPath,
+  targetLine,
+  targetNonce,
+}: DiffTabProps) {
   const t = useTranslations("prReview");
   const { data: comments } = usePrComments(prId);
   const create = useCreatePrComment(prId);
@@ -87,9 +103,18 @@ export function DiffTab({ prId, filesCount, files, reviews, canComment, onFocusF
           reviews={reviews}
           commenting={commenting}
           onFocusFinding={onFocusFinding}
+          targetPath={targetPath}
+          targetLine={targetLine}
+          targetNonce={targetNonce}
         />
       ) : (
-        <DiffViewer files={files} commenting={commenting} />
+        <DiffViewer
+          files={files}
+          commenting={commenting}
+          targetPath={targetPath}
+          targetLine={targetLine}
+          targetNonce={targetNonce}
+        />
       )}
     </section>
   );
