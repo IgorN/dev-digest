@@ -2,7 +2,7 @@
 name: engineering-insights
 description: >-
   Capture a durable, non-obvious engineering insight into the touched module's
-  INSIGHTS.md (client, server, reviewer-core, e2e) so a future session doesn't
+  INSIGHTS.md (client, server, reviewer-core, mcp-server, e2e) so a future session doesn't
   relearn it. Use the moment you hit something worth keeping during a session — a
   gotcha, a working approach, a dead-end antipattern, a codebase convention, a
   tool/library quirk, a recurring error+fix, or an open question — and again at
@@ -31,6 +31,7 @@ Write to the file of the package the work touched:
 | client (`@devdigest/web`, Next.js/React) | `client/INSIGHTS.md` |
 | server (`@devdigest/api`, Fastify/Drizzle, incl. repo-intel) | `server/INSIGHTS.md` |
 | reviewer-core (`@devdigest/reviewer-core`, the engine) | `reviewer-core/INSIGHTS.md` |
+| mcp-server (`@devdigest/mcp`, stdio MCP server) | `mcp-server/INSIGHTS.md` |
 | e2e (`@devdigest/e2e`) | `e2e/INSIGHTS.md` |
 | several packages at once | split — write each part to its own module file |
 | pure root config / CI only | usually not a module insight — skip it |

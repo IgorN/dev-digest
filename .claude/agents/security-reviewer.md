@@ -20,7 +20,9 @@ Invoke the `Skill` tool for `security` before reviewing anything — it covers O
 
 ## Scope
 
-Only the changed files in the diff you were given — not the whole repository. Pay particular attention to: injection (SQL/command/NoSQL), broken auth/authz (including IDOR, privilege escalation), sensitive data exposure (hardcoded secrets, verbose error/log leakage), unsafe deserialization, and this project's own secrets convention — secrets must go through `container.secrets`, never `process.env` (see root `CLAUDE.md`); flag any new `process.env` read of a secret-shaped value as a finding.
+The **caller passes you the changed-file set** (a file list, or a diff). You have no `Bash`, so you cannot compute a diff yourself. If no set was provided, derive your best guess from the scope description, **say explicitly in your verdict that you audited a guessed set, not a real diff**, and ask the caller to re-run you with the actual changed-file list.
+
+Only the changed files in that set — not the whole repository. Pay particular attention to: injection (SQL/command/NoSQL), broken auth/authz (including IDOR, privilege escalation), sensitive data exposure (hardcoded secrets, verbose error/log leakage), unsafe deserialization, and this project's own secrets convention — secrets must go through `container.secrets`, never `process.env` (see root `CLAUDE.md`); flag any new `process.env` read of a secret-shaped value as a finding.
 
 ## Output format
 
