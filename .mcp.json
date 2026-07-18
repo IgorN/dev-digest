@@ -1,8 +1,10 @@
 {
   "mcpServers": {
     "devdigest-local": {
+      "type": "stdio",
       "command": "pnpm",
-      "args": ["--dir", "mcp-server", "start"]
+      "args": ["--dir", "mcp-server", "start"],
+      "timeout": 30000
     }
   }
 }
