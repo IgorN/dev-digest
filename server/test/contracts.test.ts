@@ -81,6 +81,8 @@ describe('AI contracts parse fixtures', () => {
           },
         ],
         summary: 's',
+        degraded: false,
+        degraded_reason: null,
       }),
     ).not.toThrow();
     expect(() =>

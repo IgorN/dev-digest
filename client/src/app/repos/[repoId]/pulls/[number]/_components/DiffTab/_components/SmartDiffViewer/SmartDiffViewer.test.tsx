@@ -23,6 +23,7 @@
  * (a plain jsdom smoke check), so asserting on those two inline style
  * properties directly is reliable here.
  */
+import type { ComponentProps } from "react";
 import { describe, it, expect, afterEach } from "vitest";
 import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
@@ -80,10 +81,10 @@ const DATA: SmartDiff = {
   split_suggestion: { too_big: false, total_lines: 4, proposed_splits: [] },
 };
 
-function renderViewer() {
+function renderViewer(extra?: Partial<ComponentProps<typeof SmartDiffViewer>>) {
   return render(
     <NextIntlClientProvider locale="en" messages={{ shell: shellMessages, prReview: prReviewMessages }}>
-      <SmartDiffViewer data={DATA} files={FILES} reviews={[]} />
+      <SmartDiffViewer data={DATA} files={FILES} reviews={[]} {...extra} />
     </NextIntlClientProvider>,
   );
 }
@@ -145,5 +146,31 @@ describe("SmartDiffViewer", () => {
     // [0]) is untouched: the click targeted the SPECIFIC line, not the file.
     expect(siblingRow.style.boxShadow).toBe("");
     expect(siblingRow.style.background).toBe("var(--code-add)");
+  });
+
+  it("adopts an external jump target (Blast Radius caller click) into the same highlight mechanism, opening the boilerplate section if needed", () => {
+    const { rerender } = renderViewer({ targetPath: undefined, targetLine: undefined, targetNonce: 0 });
+
+    // pnpm-lock.yaml lives in the collapsed-by-default boilerplate group.
+    expect(screen.queryByText("pnpm-lock.yaml")).not.toBeInTheDocument();
+
+    rerender(
+      <NextIntlClientProvider locale="en" messages={{ shell: shellMessages, prReview: prReviewMessages }}>
+        <SmartDiffViewer
+          data={DATA}
+          files={FILES}
+          reviews={[]}
+          targetPath="pnpm-lock.yaml"
+          targetLine={2}
+          targetNonce={1}
+        />
+      </NextIntlClientProvider>,
+    );
+
+    // The section auto-opened, the file is now rendered, and the exact line
+    // is highlighted via the SAME diffLineElementId anchor as a click-driven jump.
+    const targetRow = screen.getByText(/totallyUniqueLockfileMarkerXYZ/).parentElement as HTMLElement;
+    expect(targetRow.parentElement).toBe(document.getElementById(diffLineElementId("pnpm-lock.yaml", 2)));
+    expect(targetRow.style.background).toBe("var(--accent-bg)");
   });
 });

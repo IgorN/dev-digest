@@ -31,10 +31,16 @@ answer it — then read code.
 | `client/`        | `@devdigest/web`           | Next.js 15 / React 19 :3000      | pnpm |
 | `reviewer-core/` | `@devdigest/reviewer-core` | Pure engine (no I/O)             | npm  |
 | `e2e/`           | `@devdigest/e2e`           | Deterministic browser e2e        | npm  |
+| `mcp-server/`    | `@devdigest/mcp`           | Local-only MCP server (stdio)    | pnpm |
 
 No root `package.json`. Not a workspace — each package has its own
 package.json/lockfile; cross-package code is shared as TypeScript source via
 tsconfig path aliases.
+
+`mcp-server/` is **never started automatically** — not by `./scripts/dev.sh`,
+not by Docker Compose, not by any `server|client` script. It's a standalone
+stdio process you run yourself (`cd mcp-server && pnpm start`) or that an MCP
+client spawns per the repo's `.mcp.json`. See `mcp-server/README.md`.
 
 ## Commands
 
@@ -75,7 +81,7 @@ cd client && pnpm test
 
 ## Use when
 - Working inside a package → read that package's `CLAUDE.md`:
-  `server/CLAUDE.md` · `client/CLAUDE.md` · `reviewer-core/CLAUDE.md` · `e2e/CLAUDE.md`
+  `server/CLAUDE.md` · `client/CLAUDE.md` · `reviewer-core/CLAUDE.md` · `e2e/CLAUDE.md` · `mcp-server/CLAUDE.md`
 - Stack/commands/how-to-run detail → that package's `README.md`
 - Gotchas & findings → that package's `INSIGHTS.md`
 - How insights get captured → `.claude/skills/engineering-insights/SKILL.md`

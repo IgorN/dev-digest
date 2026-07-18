@@ -20,7 +20,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { usePrReviews, useCancelRun, usePrActiveRuns, usePrRuns, useDeleteRun } from "../../../../../lib/hooks/reviews";
 import { useActiveRepo, useRepoNotFound } from "../../../../../lib/repo-context";
 import { ApiError } from "../../../../../lib/api";
-import { githubPrUrl } from "../../../../../lib/github-urls";
+import { githubPrUrl, githubBlobUrl } from "../../../../../lib/github-urls";
 import type { FindingRecord } from "@devdigest/shared";
 
 export default function PRDetailPage() {
@@ -75,6 +75,27 @@ export default function PRDetailPage() {
   const handleFocusFinding = (findingId: string) => {
     setTab("findings");
     setFocusFinding((p) => ({ id: findingId, n: (p?.n ?? 0) + 1 }));
+  };
+
+  // Blast Radius caller click (Overview tab). A caller is usually a file this
+  // PR never touched (it just calls the changed symbol), so it won't exist in
+  // the Files-changed diff to jump to — only switch tabs + scroll/highlight
+  // when the file IS part of this PR's diff; otherwise open the real file on
+  // GitHub at that line in a new tab (same deep-link githubPrUrl already uses).
+  const [jumpTarget, setJumpTarget] = React.useState<{ path: string; line: number; n: number } | null>(
+    null,
+  );
+  const diffPaths = React.useMemo(() => new Set((pr?.files ?? []).map((f) => f.path)), [pr?.files]);
+  const handleJumpToCode = (path: string, line: number) => {
+    if (diffPaths.has(path)) {
+      setTab("diff");
+      setJumpTarget((p) => ({ path, line, n: (p?.n ?? 0) + 1 }));
+      return;
+    }
+    const fullName = activeRepo?.full_name;
+    if (fullName && pr?.head_sha) {
+      window.open(githubBlobUrl(fullName, pr.head_sha, path, line), "_blank", "noopener,noreferrer");
+    }
   };
 
   // Reviews come newest-first; each is its own run (grouped into accordions).
@@ -144,7 +165,14 @@ export default function PRDetailPage() {
       />
 
       <div style={{ padding: "24px 32px 44px", display: "flex", flexDirection: "column", gap: 24, maxWidth: 1080, margin: "0 auto" }}>
-        {tab === "overview" && <OverviewTab prBody={pr.body} prId={prId} />}
+        {tab === "overview" && (
+          <OverviewTab
+            prBody={pr.body}
+            prId={prId}
+            diffPaths={diffPaths}
+            onJumpToCode={handleJumpToCode}
+          />
+        )}
 
         {tab === "findings" && (
           <FindingsTab
@@ -181,6 +209,9 @@ export default function PRDetailPage() {
             reviews={runs}
             canComment={pr.status === "open"}
             onFocusFinding={handleFocusFinding}
+            targetPath={jumpTarget?.path ?? null}
+            targetLine={jumpTarget?.line ?? null}
+            targetNonce={jumpTarget?.n ?? 0}
           />
         )}
       </div>
