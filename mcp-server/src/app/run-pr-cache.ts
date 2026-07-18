@@ -2,7 +2,7 @@
  * In-memory `run_id -> pr_id` cache (application ring, no I/O). Exists only
  * because the upstream API has no `GET /runs/:id` (approved-plan GAP-D) — the
  * MCP layer has to remember which PR a run belongs to between
- * `run_agent_on_pull_request` and a later `get_findings` call.
+ * `run_agent_on_pr` and a later `get_findings` call.
  *
  * KNOWN LIMITATION (flagged in the approved plan as risk/assumption A4): this
  * cache is process-local. If the MCP server restarts between the two calls,

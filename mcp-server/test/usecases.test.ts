@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { FakeDevDigestApi } from './fakes.js';
 import { makeListAgentsUseCase } from '../src/app/list-agents.usecase.js';
-import { makeRunAgentOnPullRequestUseCase } from '../src/app/run-agent-on-pull-request.usecase.js';
+import { makeRunAgentOnPrUseCase } from '../src/app/run-agent-on-pr.usecase.js';
 import { makeGetFindingsUseCase } from '../src/app/get-findings.usecase.js';
 import { makeGetConventionsUseCase } from '../src/app/get-conventions.usecase.js';
 import { makeGetBlastRadiusUseCase } from '../src/app/get-blast-radius.usecase.js';
@@ -40,7 +40,7 @@ describe('list_agents use-case', () => {
   });
 });
 
-describe('run_agent_on_pull_request use-case', () => {
+describe('run_agent_on_pr use-case', () => {
   let api: FakeDevDigestApi;
   let cache: RunPrCache;
 
@@ -72,7 +72,7 @@ describe('run_agent_on_pull_request use-case', () => {
         ],
       },
     ];
-    const useCase = makeRunAgentOnPullRequestUseCase({
+    const useCase = makeRunAgentOnPrUseCase({
       api,
       cache,
       defaultWaitSeconds: 6,
@@ -95,7 +95,7 @@ describe('run_agent_on_pull_request use-case', () => {
   it('resolves the agent case-insensitively by name or by id', async () => {
     api.completeOnNextPoll = { status: 'done' };
     api.reviews['pr-1'] = [{ run_id: 'run-1', verdict: 'approve', findings: [] }];
-    const useCase = makeRunAgentOnPullRequestUseCase({
+    const useCase = makeRunAgentOnPrUseCase({
       api,
       cache,
       defaultWaitSeconds: 1,
@@ -108,7 +108,7 @@ describe('run_agent_on_pull_request use-case', () => {
 
   it('returns run_id + status running when the wait window elapses first', async () => {
     // completeOnNextPoll stays null -> every poll still sees 'running'.
-    const useCase = makeRunAgentOnPullRequestUseCase({
+    const useCase = makeRunAgentOnPrUseCase({
       api,
       cache,
       defaultWaitSeconds: 1,
@@ -124,7 +124,7 @@ describe('run_agent_on_pull_request use-case', () => {
   });
 
   it('throws an actionable error when the agent is not found (image rule #4)', async () => {
-    const useCase = makeRunAgentOnPullRequestUseCase({
+    const useCase = makeRunAgentOnPrUseCase({
       api,
       cache,
       defaultWaitSeconds: 1,
@@ -137,7 +137,7 @@ describe('run_agent_on_pull_request use-case', () => {
   });
 
   it('throws an actionable error when the repo is not found', async () => {
-    const useCase = makeRunAgentOnPullRequestUseCase({
+    const useCase = makeRunAgentOnPrUseCase({
       api,
       cache,
       defaultWaitSeconds: 1,
@@ -150,7 +150,7 @@ describe('run_agent_on_pull_request use-case', () => {
   });
 
   it('throws an actionable error when the PR number is not found', async () => {
-    const useCase = makeRunAgentOnPullRequestUseCase({
+    const useCase = makeRunAgentOnPrUseCase({
       api,
       cache,
       defaultWaitSeconds: 1,

@@ -30,7 +30,7 @@ export function makeGetFindingsUseCase(deps: { api: DevDigestApi; cache: RunPrCa
     if (!prId) {
       throw new McpToolError(
         'run_not_found',
-        `Run '${input.run_id}' not found — start a review with run_agent_on_pull_request first (the MCP server may have restarted since that run started).`,
+        `Run '${input.run_id}' not found — start a review with run_agent_on_pr first (the MCP server may have restarted since that run started).`,
       );
     }
 
@@ -39,7 +39,7 @@ export function makeGetFindingsUseCase(deps: { api: DevDigestApi; cache: RunPrCa
     if (!run) {
       throw new McpToolError(
         'run_not_found',
-        `Run '${input.run_id}' not found — start a review with run_agent_on_pull_request first.`,
+        `Run '${input.run_id}' not found — start a review with run_agent_on_pr first.`,
       );
     }
 

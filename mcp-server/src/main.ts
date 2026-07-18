@@ -5,7 +5,7 @@ import { loadConfig } from './infra/config.js';
 import { HttpDevDigestApi } from './infra/http-client.js';
 import { RunPrCache } from './app/run-pr-cache.js';
 import { makeListAgentsUseCase } from './app/list-agents.usecase.js';
-import { makeRunAgentOnPullRequestUseCase } from './app/run-agent-on-pull-request.usecase.js';
+import { makeRunAgentOnPrUseCase } from './app/run-agent-on-pr.usecase.js';
 import { makeGetFindingsUseCase } from './app/get-findings.usecase.js';
 import { makeGetConventionsUseCase } from './app/get-conventions.usecase.js';
 import { makeGetBlastRadiusUseCase } from './app/get-blast-radius.usecase.js';
@@ -32,7 +32,7 @@ async function main(): Promise<void> {
 
   registerTools(server, {
     listAgents: makeListAgentsUseCase({ api }),
-    runAgentOnPullRequest: makeRunAgentOnPullRequestUseCase({
+    runAgentOnPr: makeRunAgentOnPrUseCase({
       api,
       cache,
       defaultWaitSeconds: config.defaultWaitSeconds,

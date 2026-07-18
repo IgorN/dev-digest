@@ -9,12 +9,12 @@
 export const LIST_AGENTS_DESCRIPTION =
   "List the configured review agents (review profiles) available in this DevDigest workspace. " +
   "Returns each agent's human-readable name, description, provider and model. " +
-  "Call this first when you need a valid value for the `agent` parameter of run_agent_on_pull_request, " +
+  "Call this first when you need a valid value for the `agent` parameter of run_agent_on_pr, " +
   "or when the user asks which agents/review profiles exist. " +
   "Do NOT call this to read review results (use get_findings) and do NOT call it repeatedly in a loop — the list is stable within a session. " +
   "Read-only and fast; no side effects.";
 
-export const RUN_AGENT_ON_PULL_REQUEST_DESCRIPTION =
+export const RUN_AGENT_ON_PR_DESCRIPTION =
   "Start a review of one pull request by one agent and return a self-contained outcome. " +
   "Identify the PR by `repo` (\"owner/repo\") and `pr_number`, and the agent by its name or id from list_agents. " +
   "Reviews run asynchronously and can take minutes: this tool waits briefly (wait_seconds, default 6, max 20). " +
@@ -25,11 +25,11 @@ export const RUN_AGENT_ON_PULL_REQUEST_DESCRIPTION =
   "If the agent or PR is not found, the error tells you the next step (e.g. call list_agents).";
 
 export const GET_FINDINGS_DESCRIPTION =
-  "Fetch the results of an already-started review run by its `run_id` (from run_agent_on_pull_request). " +
+  "Fetch the results of an already-started review run by its `run_id` (from run_agent_on_pr). " +
   "Returns the run status, an overall verdict, and a concise list of findings " +
   "(severity, category, title, file, line, suggestion). Optionally filter by `severity` or `category` and cap with `limit` (default 20). " +
   "Status \"running\" is a normal response, not an error — poll again in a few seconds. " +
-  "Call this after run_agent_on_pull_request returns status \"running\", or to re-read a previous run's findings. " +
+  "Call this after run_agent_on_pr returns status \"running\", or to re-read a previous run's findings. " +
   "Do NOT call this to start a review, and do NOT call it without a run_id. Read-only.";
 
 export const GET_CONVENTIONS_DESCRIPTION =

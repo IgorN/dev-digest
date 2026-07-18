@@ -5,13 +5,13 @@ import { isMcpToolError } from '../domain/errors.js';
 import { Severity, FindingCategory } from '../vendor/shared/findings.js';
 import {
   LIST_AGENTS_DESCRIPTION,
-  RUN_AGENT_ON_PULL_REQUEST_DESCRIPTION,
+  RUN_AGENT_ON_PR_DESCRIPTION,
   GET_FINDINGS_DESCRIPTION,
   GET_CONVENTIONS_DESCRIPTION,
   GET_BLAST_RADIUS_DESCRIPTION,
 } from './descriptions.js';
 import type { ListAgentsInput } from '../app/list-agents.usecase.js';
-import type { RunAgentOnPullRequestInput } from '../app/run-agent-on-pull-request.usecase.js';
+import type { RunAgentOnPrInput } from '../app/run-agent-on-pr.usecase.js';
 import type { GetFindingsInput } from '../app/get-findings.usecase.js';
 import type { GetConventionsInput } from '../app/get-conventions.usecase.js';
 import type { GetBlastRadiusInput } from '../app/get-blast-radius.usecase.js';
@@ -25,7 +25,7 @@ import type { GetBlastRadiusInput } from '../app/get-blast-radius.usecase.js';
  */
 export interface ToolUseCases {
   listAgents: (input: ListAgentsInput) => Promise<unknown>;
-  runAgentOnPullRequest: (input: RunAgentOnPullRequestInput) => Promise<unknown>;
+  runAgentOnPr: (input: RunAgentOnPrInput) => Promise<unknown>;
   getFindings: (input: GetFindingsInput) => Promise<unknown>;
   getConventions: (input: GetConventionsInput) => Promise<unknown>;
   getBlastRadius: (input: GetBlastRadiusInput) => unknown;
@@ -33,7 +33,9 @@ export interface ToolUseCases {
 
 function ok(data: unknown): CallToolResult {
   return {
-    content: [{ type: 'text', text: JSON.stringify(data, null, 2) }],
+    // Compact (no indentation) — the text content is for a model to read,
+    // not a human, so pretty-printing whitespace is pure wasted tokens.
+    content: [{ type: 'text', text: JSON.stringify(data) }],
     structuredContent: data as Record<string, unknown>,
   };
 }
@@ -67,10 +69,10 @@ export function registerTools(server: McpServer, useCases: ToolUseCases): void {
   );
 
   server.registerTool(
-    'run_agent_on_pull_request',
+    'run_agent_on_pr',
     {
       title: 'Run agent on pull request',
-      description: RUN_AGENT_ON_PULL_REQUEST_DESCRIPTION,
+      description: RUN_AGENT_ON_PR_DESCRIPTION,
       inputSchema: {
         repo: z.string().min(1).describe('Repository full name, e.g. "owner/repo".'),
         pr_number: z.number().int().positive().describe('The pull request number (not its internal id).'),
@@ -91,7 +93,7 @@ export function registerTools(server: McpServer, useCases: ToolUseCases): void {
     },
     async ({ repo, pr_number, agent, wait_seconds, idempotency_key }) =>
       run(() =>
-        useCases.runAgentOnPullRequest({
+        useCases.runAgentOnPr({
           repo,
           pr_number,
           agent,
@@ -107,7 +109,7 @@ export function registerTools(server: McpServer, useCases: ToolUseCases): void {
       title: 'Get findings',
       description: GET_FINDINGS_DESCRIPTION,
       inputSchema: {
-        run_id: z.string().min(1).describe('The run_id returned by run_agent_on_pull_request.'),
+        run_id: z.string().min(1).describe('The run_id returned by run_agent_on_pr.'),
         severity: Severity.optional().describe('Filter to one severity.'),
         category: FindingCategory.optional().describe('Filter to one category.'),
         limit: z.number().int().positive().optional().describe('Max findings to return (default 20).'),

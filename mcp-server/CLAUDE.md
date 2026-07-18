@@ -29,7 +29,7 @@ for the vocabulary this mirrors)
 - Connects to `server/`'s existing HTTP API (`DEVDIGEST_API_URL`, default
   `:3001`) — no direct Drizzle/Postgres access, no auth header (the app's
   `LocalNoAuthProvider` needs none today).
-- `run_agent_on_pull_request` does a short **bounded wait** (default 6s, hard
+- `run_agent_on_pr` does a short **bounded wait** (default 6s, hard
   cap 20s) then falls back to `run_id` + `status:"running"`; `get_findings`
   polls by `run_id`. The `run_id → pr_id` mapping is an **in-memory-only**
   cache (`src/app/run-pr-cache.ts`) — it does not survive a server restart

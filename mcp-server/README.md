@@ -14,7 +14,7 @@ Inspector, …).
 | Tool | Maps to | Notes |
 |---|---|---|
 | `list_agents` | `GET /agents` | real, already-selectable entity |
-| `run_agent_on_pull_request` | `POST /pulls/:id/review` | async; bounded wait, then `run_id` + poll |
+| `run_agent_on_pr` | `POST /pulls/:id/review` | async; bounded wait, then `run_id` + poll |
 | `get_findings` | `GET /pulls/:id/reviews` | poll a run started above, by `run_id` |
 | `get_conventions` | `GET /repos/:id/conventions` | accepted conventions only by default |
 | `get_blast_radius` | — | **safe stub** — `implemented: false`, no real analysis exists yet |
@@ -97,7 +97,7 @@ written to `server/.env`):
 | Variable | Default | Meaning |
 |---|---|---|
 | `DEVDIGEST_API_URL` | `http://localhost:3001` | Base URL of the running DevDigest API |
-| `MCP_RUN_WAIT_SECONDS_DEFAULT` | `6` | Default bounded-wait window for `run_agent_on_pull_request` (hard-capped at 20s regardless of this value or the tool's own `wait_seconds` input) |
+| `MCP_RUN_WAIT_SECONDS_DEFAULT` | `6` | Default bounded-wait window for `run_agent_on_pr` (hard-capped at 20s regardless of this value or the tool's own `wait_seconds` input) |
 | `MCP_LOG_LEVEL` | `info` | Reserved; current logging is a handful of `console.error` lines to stderr |
 
 Export them in your shell, or prefix the start command, e.g.:
@@ -141,8 +141,10 @@ the repo root (see the file already checked in there):
 {
   "mcpServers": {
     "devdigest-local": {
+      "type": "stdio",
       "command": "pnpm",
-      "args": ["--dir", "mcp-server", "start"]
+      "args": ["--dir", "mcp-server", "start"],
+      "timeout": 30000
     }
   }
 }
@@ -178,8 +180,8 @@ BASE="npx @modelcontextprotocol/inspector --cli pnpm --dir /absolute/path/to/mcp
 # 1) list_agents
 $BASE --method tools/call --tool-name list_agents --tool-arg enabled_only=true
 
-# 2) run_agent_on_pull_request (flat args; returns findings inline OR run_id+"running")
-$BASE --method tools/call --tool-name run_agent_on_pull_request \
+# 2) run_agent_on_pr (flat args; returns findings inline OR run_id+"running")
+$BASE --method tools/call --tool-name run_agent_on_pr \
       --tool-arg repo=owner/repo --tool-arg pr_number=42 --tool-arg agent="Default Reviewer"
 
 # 3) get_findings (use the run_id from step 2)
@@ -218,12 +220,12 @@ None of these require the DevDigest app stack or Postgres to be running.
 |---|---|---|
 | Client hangs on `initialize` / "invalid JSON" | Something wrote to stdout besides the SDK (e.g. a stray `console.log`) | All logging in this package uses `console.error` (stderr) — check for new code that logs to stdout |
 | `Could not reach the DevDigest API` / `ECONNREFUSED` | App stack isn't running | `./scripts/dev.sh`, then `curl localhost:3001/agents` |
-| `run_agent_on_pull_request` always returns `status: "running"` | The review is slower than `wait_seconds` | Expected for slow reviews — call `get_findings` with the returned `run_id`; you can raise `wait_seconds` up to 20 |
+| `run_agent_on_pr` always returns `status: "running"` | The review is slower than `wait_seconds` | Expected for slow reviews — call `get_findings` with the returned `run_id`; you can raise `wait_seconds` up to 20 |
 | `"agent 'X' not found — call list_agents..."` | Wrong agent name/id | Call `list_agents` first, use the exact `name` or `id` |
 | `"PR #N in owner/repo not found..."` | Repo not imported, or PR not synced yet | Import the repo and open its Pull Requests tab in the app once (this syncs PRs from GitHub) before calling the MCP tool |
-| `get_findings` says `run_not_found` for a run you just started | The MCP server process restarted between the two calls | Known v1 limitation — the `run_id → pr_id` mapping is in-memory only (see `src/app/run-pr-cache.ts`); re-run `run_agent_on_pull_request` |
+| `get_findings` says `run_not_found` for a run you just started | The MCP server process restarted between the two calls | Known v1 limitation — the `run_id → pr_id` mapping is in-memory only (see `src/app/run-pr-cache.ts`); re-run `run_agent_on_pr` |
 | `get_conventions` returns `scanned: false` | Repo has never been scanned for conventions | Run extraction from the DevDigest app itself — this MCP tool deliberately never triggers the expensive extract pass |
-| `429` / rate-limited error on `run_agent_on_pull_request` | Upstream rate limit (10 reviews/min per `POST /pulls/:id/review`) | Wait and retry; don't call this tool in a poll loop — use `get_findings` for polling |
+| `429` / rate-limited error on `run_agent_on_pr` | Upstream rate limit (10 reviews/min per `POST /pulls/:id/review`) | Wait and retry; don't call this tool in a poll loop — use `get_findings` for polling |
 | `devdigest: command not found` | `npm link` wasn't run (or you're in a different shell/Node version manager) | `cd mcp-server && npm link`, or invoke directly: `node /path/to/mcp-server/bin/devdigest.js review --mode working` |
 | `Cannot find package '@devdigest/reviewer-core'` when running `devdigest` from another repo | tsx resolves tsconfig path aliases relative to the CURRENT directory, not the script's location | Already handled by `bin/devdigest.js` (`--tsconfig` pinned to this package's own `tsconfig.json`) — if you bypass the shim and call `tsx src/cli/main.ts` directly from elsewhere, pass `--tsconfig` yourself |
 | `OPENROUTER_API_KEY is not set` | Not exported in the current shell | `export OPENROUTER_API_KEY=...` — this CLI never reads the app's stored/secrets-file key |

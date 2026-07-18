@@ -5,7 +5,7 @@ import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { FakeDevDigestApi } from './fakes.js';
 import { registerTools } from '../src/transport/tools.js';
 import { makeListAgentsUseCase } from '../src/app/list-agents.usecase.js';
-import { makeRunAgentOnPullRequestUseCase } from '../src/app/run-agent-on-pull-request.usecase.js';
+import { makeRunAgentOnPrUseCase } from '../src/app/run-agent-on-pr.usecase.js';
 import { makeGetFindingsUseCase } from '../src/app/get-findings.usecase.js';
 import { makeGetConventionsUseCase } from '../src/app/get-conventions.usecase.js';
 import { makeGetBlastRadiusUseCase } from '../src/app/get-blast-radius.usecase.js';
@@ -24,7 +24,7 @@ async function setup() {
   const server = new McpServer({ name: 'devdigest-mcp-test', version: '0.0.0' });
   registerTools(server, {
     listAgents: makeListAgentsUseCase({ api }),
-    runAgentOnPullRequest: makeRunAgentOnPullRequestUseCase({
+    runAgentOnPr: makeRunAgentOnPrUseCase({
       api,
       cache,
       defaultWaitSeconds: 1,
@@ -52,7 +52,7 @@ describe('MCP protocol surface', () => {
       'get_conventions',
       'get_findings',
       'list_agents',
-      'run_agent_on_pull_request',
+      'run_agent_on_pr',
     ]);
   });
 
@@ -76,7 +76,7 @@ describe('MCP protocol surface', () => {
     });
   });
 
-  it('run_agent_on_pull_request -> get_findings round trip when the run finishes fast', async () => {
+  it('run_agent_on_pr -> get_findings round trip when the run finishes fast', async () => {
     const { client, api } = await setup();
     api.repos = [{ id: 'repo-1', owner: 'o', name: 'r', full_name: 'o/r' }];
     api.agents = [
@@ -87,7 +87,7 @@ describe('MCP protocol surface', () => {
     api.reviews['pr-1'] = [{ run_id: 'run-1', verdict: 'approve', findings: [] }];
 
     const runResult = await client.callTool({
-      name: 'run_agent_on_pull_request',
+      name: 'run_agent_on_pr',
       arguments: { repo: 'o/r', pr_number: 5, agent: 'Reviewer', wait_seconds: 1 },
     });
     expect(runResult.isError).toBeFalsy();
@@ -104,7 +104,7 @@ describe('MCP protocol surface', () => {
     api.pulls['repo-1'] = [{ id: 'pr-1', number: 5, title: 'PR' }];
 
     const result = await client.callTool({
-      name: 'run_agent_on_pull_request',
+      name: 'run_agent_on_pr',
       arguments: { repo: 'o/r', pr_number: 5, agent: 'ghost', wait_seconds: 1 },
     });
     expect(result.isError).toBe(true);
