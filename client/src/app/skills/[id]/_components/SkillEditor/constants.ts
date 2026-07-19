@@ -8,9 +8,11 @@ export interface SkillEditorTab {
 }
 
 /** Skill editor tabs: edit config, preview the rendered body, browse version
- *  history, and see which agents use the skill. */
+ *  history, see which agents use the skill, and attach context documents
+ *  (L06 — inherited by every agent using the skill). */
 export const TABS: readonly SkillEditorTab[] = [
   { key: "config", labelKey: "editor.tabs.config", icon: "Settings" },
+  { key: "context", labelKey: "editor.tabs.context", icon: "Folder" },
   { key: "preview", labelKey: "editor.tabs.preview", icon: "Eye" },
   { key: "versions", labelKey: "editor.tabs.versions", icon: "GitBranch" },
   { key: "stats", labelKey: "editor.tabs.stats", icon: "BarChart" },

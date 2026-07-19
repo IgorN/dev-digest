@@ -1,6 +1,6 @@
 import { simpleGit, type SimpleGit } from 'simple-git';
-import { join } from 'node:path';
-import { mkdir, readFile, access, rm } from 'node:fs/promises';
+import { join, sep } from 'node:path';
+import { mkdir, readFile, access, rm, realpath } from 'node:fs/promises';
 import { constants } from 'node:fs';
 import type {
   GitClient,
@@ -126,8 +126,24 @@ export class SimpleGitClient implements GitClient {
     }));
   }
 
+  /**
+   * Read a repo-relative file from the clone, refusing symlink escapes.
+   * Callers' lexical guards (`isPathSafe`) can't catch a git-TRACKED symlink
+   * whose target sits outside the clone (`docs/leak.md -> ../../secrets` or an
+   * absolute target), so containment is enforced here on the REAL paths:
+   * `realpath` of both the clone root and the joined path (which also
+   * normalizes platform symlinks like macOS `/tmp` -> `/private/tmp`), then
+   * require the resolved file to live under the resolved root. Escapes throw —
+   * every caller already treats a `readFile` throw as missing/unreadable
+   * (skip / 404 / token_estimate 0), never as content.
+   */
   async readFile(repo: RepoRef, path: string): Promise<string> {
-    return readFile(join(this.clonePathFor(repo), path), 'utf8');
+    const cloneRoot = await realpath(this.clonePathFor(repo));
+    const resolved = await realpath(join(cloneRoot, path));
+    if (resolved !== cloneRoot && !resolved.startsWith(cloneRoot + sep)) {
+      throw new Error(`readFile refused: '${path}' resolves outside the clone root`);
+    }
+    return readFile(resolved, 'utf8');
   }
 
   /** Tracked files via `git ls-files` (honors .gitignore — no node_modules/build). */

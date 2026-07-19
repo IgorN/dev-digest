@@ -89,6 +89,18 @@ export const RunTrace = z.object({
   raw_output: z.string(),
   memory_pulled: z.array(MemoryPulled),
   specs_read: z.array(z.string()),
+  // Per-document detail for the ## Project context slot. NEW nullish field —
+  // trace JSON is persisted, so specs_read's element type must never change
+  // and additions must be nullish for old rows to keep parsing.
+  specs_injected: z
+    .array(
+      z.object({
+        path: z.string(),
+        tokens: z.number().int(),
+        status: z.enum(['injected', 'truncated', 'skipped_missing']),
+      }),
+    )
+    .nullish(),
   log: z.array(RunLogLine),
 });
 export type RunTrace = z.infer<typeof RunTrace>;

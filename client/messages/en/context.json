@@ -1,24 +1,38 @@
 {
-  "title": "Project Context",
-  "chunks": "{count} chunks",
-  "reindex": "Re-index",
-  "indexing": "Indexing…",
-  "resync": "Resync",
-  "resyncing": "Resyncing…",
-  "indexStatus": "Index status: {status}",
-  "loadError": "Couldn’t load specs",
-  "kb": "{kb}kb",
-  "empty": {
-    "title": "No spec files yet",
-    "body": "Drop your PRDs, tech specs, and acceptance criteria under .devdigest/specs/. Every agent and the PR brief read them as grounding context."
+  "breadcrumbLab": "Workspace",
+  "breadcrumb": "Project Context",
+  "title": "Project Context in",
+  "subtitle": "{count, plural, one {# markdown document} other {# markdown documents}} under the context roots",
+  "loadError": "Could not load context documents.",
+  "noRepoTitle": "No repository selected",
+  "noRepoBody": "Pick a repository from the switcher to browse its context documents.",
+  "noClone": {
+    "title": "No local clone yet",
+    "body": "This repository has no local clone, so there are no documents to list yet. Import a pull request to create one — nothing is wrong."
   },
-  "mode": {
-    "preview": "preview",
-    "edit": "edit"
+  "noDocs": {
+    "title": "No context documents found",
+    "body": "No markdown files live under the configured context roots (specs, docs, insights) in this repository's clone."
   },
-  "editor": {
-    "loadError": "Couldn’t load spec",
-    "save": "Save",
-    "saving": "Saving…"
+  "tokens": "≈ {count} tok",
+  "tab": {
+    "title": "Context documents",
+    "attachedCount": "{attached} of {total} attached",
+    "filterPlaceholder": "Filter documents…",
+    "orderHint": "Order matters — earlier documents appear earlier in the assembled prompt. Attached documents are injected as an untrusted \"## Project context\" block into every run. Check to attach, drag to reorder.",
+    "dragHint": "Drag to reorder",
+    "showPreview": "Show preview of {name}",
+    "hidePreview": "Hide preview of {name}",
+    "totalTokens": "≈ {count} tokens",
+    "serializesTitle": "Serializes as",
+    "inheritHint": "Any agent using this skill inherits these documents."
+  },
+  "preview": {
+    "placeholderTitle": "Select a document",
+    "placeholderBody": "Choose a document from the list to preview its markdown.",
+    "loadError": "Could not load this document.",
+    "truncated": "Truncated",
+    "usedBy": "{agents, plural, =0 {Not attached to any agent} one {Used by # agent} other {Used by # agents}}",
+    "usedBySkills": "{count, plural, one {# skill} other {# skills}}"
   }
 }

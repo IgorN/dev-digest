@@ -8,6 +8,13 @@ import type { ReviewRepository, FindingRow, PullRow, ReviewRow } from './reposit
 import { REVIEW_STRATEGY } from './constants.js';
 import { taskLine } from './helpers.js';
 import { loadDiff } from './diff-loader.js';
+import {
+  assembleContextPaths,
+  buildContextInjection,
+  type ContextDocRead,
+  type ContextInjection,
+} from './context-assembly.js';
+import { isPathSafe } from '../context/helpers.js';
 
 /** Thrown by a run when the user cancels it mid-flight (between map files). */
 export class RunCancelledError extends Error {
@@ -167,6 +174,11 @@ export class ReviewRunExecutor {
 
     runLog.info(`Starting review with agent "${agent.name}" (${agent.provider}/${agent.model})`);
 
+    // Assembled Project Context (attached docs). Declared outside the try so
+    // the failure/cancel trace below can still record what WAS assembled when
+    // the run dies after assembly (e.g. at the LLM call).
+    let context: ContextInjection | undefined;
+
     try {
       // Resolve the agent's LLM provider. (container.llm throws if the provider
       // key is missing — caught below and persisted as a failed run.)
@@ -213,6 +225,14 @@ export class ReviewRunExecutor {
         );
       }
 
+      // Project Context — attached markdown docs: the agent's own paths first,
+      // then enabled linked skills' paths (skills in link order), deduped
+      // first-occurrence-wins (AC-7/AC-8). Contents are read FRESH from the
+      // reviewed repo's clone; a missing/unreadable/unsafe path is skipped and
+      // an oversized one truncated — never a run failure (AC-16/18/19). Zero
+      // LLM calls here (AC-15): pure assembly + local clone reads.
+      context = await this.loadProjectContext(repo, agent, linkedSkills, runLog);
+
       // ---- Engine: assemble → single-pass → grounding -----------------------
       // The pure review pipeline lives in @devdigest/reviewer-core (shared with
       // the CI runner). The service owns only I/O: repo-intel context resolution
@@ -233,6 +253,10 @@ export class ReviewRunExecutor {
         // L02 — linked enabled skills as prompt blocks; omitted when none, so the
         // assembly (and token count) is identical to the pre-skills baseline.
         ...(skillBodies.length ? { skills: skillBodies } : {}),
+        // Project Context — attached docs' contents in assembled order. An
+        // EMPTY set omits the key entirely so the prompt (and token count) is
+        // byte-for-byte the pre-feature baseline (AC-17: assembly.specs null).
+        ...(context.specs.length ? { specs: context.specs } : {}),
         // PR author's description/body — untrusted; assemblePrompt wraps +
         // truncates it. Omitted when the PR has no body.
         ...(pull.body ? { prDescription: pull.body } : {}),
@@ -316,7 +340,12 @@ export class ReviewRunExecutor {
         })),
         raw_output: outcome.raw,
         memory_pulled: [],
-        specs_read: [],
+        // Project Context observability: specs_read = paths actually injected
+        // (existing chip display); specs_injected = per-path outcome incl.
+        // skips/truncations (AC-12). Null when the set was empty so the trace
+        // matches pre-feature runs (AC-17).
+        specs_read: context.specsRead,
+        specs_injected: context.specsInjected.length ? context.specsInjected : null,
         // Persisted log = the run's FULL event buffer (incl. shared pre-work:
         // diff load + intent), not just events recorded inside this method.
         log: runLog.logFor(runId),
@@ -345,7 +374,10 @@ export class ReviewRunExecutor {
         })
         .catch(() => undefined);
       await this.repo
-        .saveRunTrace(runId, this.traceFromBuffer(runId, pull, agent, '0/0 passed', Date.now() - start))
+        .saveRunTrace(
+          runId,
+          this.traceFromBuffer(runId, pull, agent, '0/0 passed', Date.now() - start, context),
+        )
         .catch(() => undefined);
       this.container.runBus.complete(runId);
       throw err;
@@ -440,6 +472,58 @@ export class ReviewRunExecutor {
   }
 
   /**
+   * Project Context (L06) — assemble the agent's attached document set and
+   * read each doc's CURRENT content from the reviewed PR's repo clone.
+   *
+   * Set = agent's own `context_documents` (listed order) + each ENABLED linked
+   * skill's `context_documents` (skills in link order), deduped
+   * first-occurrence-wins (AC-7/AC-8; a disabled skill's docs are omitted,
+   * mirroring the skill-body wiring). Per doc: an unsafe path is REFUSED
+   * without any read (AC-19), a failed read (missing/unreadable — the real
+   * GitClient throws ENOENT) is skipped (AC-16), an oversized doc is truncated
+   * at `contextDocMaxBytes` (AC-18). Never throws; never fails the run.
+   */
+  private async loadProjectContext(
+    repo: typeof schema.repos.$inferSelect,
+    agent: AgentRow,
+    linkedSkills: Awaited<ReturnType<Container['agentsRepo']['linkedSkills']>>,
+    runLog: RunLogger,
+  ): Promise<ContextInjection> {
+    const paths = assembleContextPaths(
+      agent.contextDocuments ?? [],
+      linkedSkills.filter((l) => l.skill.enabled).map((l) => l.skill.contextDocuments ?? []),
+    );
+    if (paths.length === 0) return { specs: [], specsRead: [], specsInjected: [] };
+
+    const repoRef = { owner: repo.owner, name: repo.name };
+    const reads: ContextDocRead[] = [];
+    for (const path of paths) {
+      // AC-19: a stored path that escapes the clone root is never handed to
+      // the git adapter at all — no file outside the clone is read.
+      if (!isPathSafe(path)) {
+        reads.push({ path, content: null });
+        continue;
+      }
+      try {
+        reads.push({ path, content: await this.container.git.readFile(repoRef, path) });
+      } catch {
+        // Missing/unreadable in THIS repo's clone (or no clone) → skip (AC-16).
+        reads.push({ path, content: null });
+      }
+    }
+
+    const injection = buildContextInjection(reads, this.container.config.contextDocMaxBytes);
+    const skipped = injection.specsInjected.filter((s) => s.status === 'skipped_missing').length;
+    const truncated = injection.specsInjected.filter((s) => s.status === 'truncated').length;
+    runLog.info(
+      `project context: ${injection.specsRead.length} document(s) injected` +
+        (truncated ? ` (${truncated} truncated)` : '') +
+        (skipped ? ` (${skipped} skipped: missing/unsafe)` : ''),
+    );
+    return injection;
+  }
+
+  /**
    * A minimal RunTrace whose `log` is the run's full SSE buffer — persisted on
    * failure/cancel (and pre-work failures) so the events (and WHY it failed)
    * survive a reload, not just the in-memory stream.
@@ -450,6 +534,7 @@ export class ReviewRunExecutor {
     agent: AgentRow,
     grounding: string,
     durationMs = 0,
+    context?: ContextInjection,
   ): RunTrace {
     return {
       config: {
@@ -465,7 +550,11 @@ export class ReviewRunExecutor {
       tool_calls: [],
       raw_output: '',
       memory_pulled: [],
-      specs_read: [],
+      // A failed/cancelled run that got past context assembly still records
+      // what was assembled (same fields as the success trace); pre-assembly
+      // failures (incl. failAll pre-work failures) record the empty baseline.
+      specs_read: context?.specsRead ?? [],
+      specs_injected: context?.specsInjected.length ? context.specsInjected : null,
       log: this.container.runBus.buffer(runId).map((e) => ({ t: e.t, kind: e.kind, msg: e.msg })),
     };
   }

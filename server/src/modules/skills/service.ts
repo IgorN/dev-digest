@@ -8,7 +8,7 @@ import type {
   SkillVersion,
 } from '@devdigest/shared';
 import { SkillsRepository } from './repository.js';
-import { toSkillDto, toSkillVersionDto } from './helpers.js';
+import { normalizeContextDocuments, toSkillDto, toSkillVersionDto } from './helpers.js';
 import { buildImportPreview } from './import.js';
 
 /**
@@ -91,6 +91,23 @@ export class SkillsService {
       ...(patch.evidence_files !== undefined ? { evidenceFiles: patch.evidence_files } : {}),
       ...(patch.version_message !== undefined ? { versionMessage: patch.version_message } : {}),
     });
+    return row ? toSkillDto(row) : undefined;
+  }
+
+  /**
+   * Replace the skill's ordered attached context-document paths (full ordered
+   * set per change, mirroring the agents endpoint). Paths are validated
+   * (lexical safety + markdown-only, AC-19) and deduped first-occurrence-wins.
+   * Does NOT bump the skill body version (parallel to `evidence_files`, D6).
+   * Undefined → route 404.
+   */
+  async setContextDocuments(
+    workspaceId: string,
+    id: string,
+    paths: string[],
+  ): Promise<Skill | undefined> {
+    const normalized = normalizeContextDocuments(paths);
+    const row = await this.repo.setContextDocuments(workspaceId, id, normalized);
     return row ? toSkillDto(row) : undefined;
   }
 

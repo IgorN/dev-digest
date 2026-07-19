@@ -14,6 +14,7 @@ import { SkillsService } from './service.js';
  *   POST   /skills                 → create (manual, or confirm-to-save an import)
  *   PUT    /skills/:id             → update / toggle enabled (body change versions)
  *   DELETE /skills/:id             → delete (cascades versions + agent links)
+ *   POST   /skills/:id/context-documents → set/reorder attached context docs (full set)
  *   POST   /skills/import          → parse an uploaded md/zip into a PREVIEW (no save)
  *
  * A skill runs nothing: it is a markdown `body` injected verbatim into an
@@ -40,6 +41,12 @@ const UpdateSkillBody = z.object({
   enabled: z.boolean().optional(),
   evidence_files: z.array(z.string()).nullish(),
   version_message: z.string().nullish(),
+});
+
+/** The FULL ordered set of attached context-document paths (like the agents
+ *  endpoint's convention — each change sends the whole ordered array). */
+const SetContextDocumentsBody = z.object({
+  paths: z.array(z.string().min(1)),
 });
 
 /** Import upload: the file's bytes as base64 plus its name (binary-safe in JSON,
@@ -94,6 +101,17 @@ export default async function skillsRoutes(appBase: FastifyInstance) {
     if (!ok) throw new NotFoundError('Skill not found');
     return { ok: true };
   });
+
+  app.post(
+    '/skills/:id/context-documents',
+    { schema: { params: IdParams, body: SetContextDocumentsBody } },
+    async (req) => {
+      const { workspaceId } = await getContext(app.container, req);
+      const skill = await service.setContextDocuments(workspaceId, req.params.id, req.body.paths);
+      if (!skill) throw new NotFoundError('Skill not found');
+      return skill;
+    },
+  );
 
   app.get('/skills/:id/versions', { schema: { params: IdParams } }, async (req) => {
     const { workspaceId } = await getContext(app.container, req);

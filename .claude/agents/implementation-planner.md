@@ -85,6 +85,16 @@ itself.
   (a test name, a command result, an observable behavior). Every requirement maps to at least one task.
 - **Stay in scope.** Plan the requirements as given. Out-of-scope improvements go under
   Recommendations or Risks — never folded silently into the work.
+- **Structure the model must produce goes in the output schema, never in prose.** If a task has an
+  LLM (via `completeStructured`) generate something the UI or downstream code parses out of free
+  text — "put the commands in a fenced code block", "list steps as `1.`, `2.`, …" — that task is
+  under-specified. A prose formatting instruction is unenforceable against a cheap/weak model and
+  fails silently (the output still typechecks; it just doesn't parse). Task the field into the Zod
+  contract instead (e.g. `commands: string[]`) so the schema itself enforces it, and note the
+  contract change under `Affected packages & contracts`. Lesson from a real run: onboarding's
+  "run locally" commands were specified as a fenced-block convention, the configured cheap model
+  ignored it, and the whole plan needed a follow-up task (new field, post-validation, client
+  rendering change) to fix it — see `server/INSIGHTS.md` (2026-07-18).
 
 ## Step 1 — Verify the requirements (always, before planning)
 
@@ -244,6 +254,8 @@ multi-agent (parallel) | single-agent (one pass) — <one line on what the user 
 - [ ] Every Acceptance is measurable
 - [ ] Vendored-contract and e2e tasks are owned by orchestrator/human, not a parallel implementer
 - [ ] No tests/builds were run during planning
+- [ ] Any model-generated structure the UI/code parses is a typed output-schema field, not a prose
+      formatting rule in the prompt
 ```
 
 ## When you cannot produce a plan

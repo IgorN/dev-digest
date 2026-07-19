@@ -37,12 +37,24 @@ export const OnboardingSection = z.object({
   title: z.string(),
   body: z.string(), // markdown
   diagram: z.string().nullish(), // mermaid
+  // Runnable shell commands, one per entry — only the `run-locally` section
+  // carries these; the UI renders each as a copyable row. Structured rather
+  // than a fenced block inside `body` so the output SCHEMA enforces them: a
+  // cheap model follows a typed field far more reliably than a prose
+  // formatting rule. Nullish so tours persisted before this field still parse.
+  commands: z.array(z.string()).nullish(),
   links: z.array(OnboardingLink),
 });
 export type OnboardingSection = z.infer<typeof OnboardingSection>;
 
 export const Onboarding = z.object({
   sections: z.array(OnboardingSection),
+  // Staleness + index-state metadata. All nullish so already-persisted
+  // onboarding.json rows (written before these fields existed) still parse.
+  generated_at: z.string().nullish(),
+  files_indexed: z.number().int().nullish(),
+  index_state: z.enum(['full', 'partial', 'degraded', 'failed']).nullish(),
+  degraded_reason: z.string().nullish(),
 });
 export type Onboarding = z.infer<typeof Onboarding>;
 
@@ -128,6 +140,9 @@ export const Skill = z.object({
   enabled: z.boolean(),
   version: z.number().int(),
   evidence_files: z.array(z.string()).nullish(),
+  // Ordered repo-relative paths of project-context documents attached to this
+  // skill; inherited by every agent using the skill. Paths only, never content.
+  context_documents: z.array(z.string()).nullish(),
 });
 export type Skill = z.infer<typeof Skill>;
 
@@ -240,6 +255,9 @@ export const Agent = z.object({
   repo_intel: z.boolean().default(true),
   // Number of skills linked to this agent (for the "N skills" card badge).
   skill_count: z.number().int().default(0),
+  // Ordered repo-relative paths of project-context documents attached to this
+  // agent. Paths only — content is read from the repo clone at run time.
+  context_documents: z.array(z.string()).nullish(),
 });
 export type Agent = z.infer<typeof Agent>;
 
@@ -264,6 +282,8 @@ export const AgentVersionConfig = z.object({
   ci_fail_on: CiFailOn,
   repo_intel: z.boolean(),
   skills: z.array(z.string()),
+  // Persisted into agent_versions.config_json — MUST default for old rows.
+  context_documents: z.array(z.string()).default([]),
 });
 export type AgentVersionConfig = z.infer<typeof AgentVersionConfig>;
 

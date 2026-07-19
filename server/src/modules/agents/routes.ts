@@ -26,6 +26,7 @@ const VersionParams = z.object({
  *   GET    /agents/:id/versions/:version → one config snapshot
  *   GET    /agents/:id/skills       → linked skills (ordered)
  *   POST   /agents/:id/skills       → set/reorder linked skills OR link one
+ *   POST   /agents/:id/context-documents → set/reorder attached context docs (full set)
  *   GET    /agents/:id/models       → dynamic model list for the agent's provider
  *   GET    /providers/:id/models    → dynamic model list for a provider (editor)
  */
@@ -66,6 +67,12 @@ const SetSkillsBody = z
   .refine((b) => b.skill_ids !== undefined || b.skill_id !== undefined, {
     message: 'Provide skill_ids (set/reorder) or skill_id (link one)',
   });
+
+/** The FULL ordered set of attached context-document paths (like the Skills
+ *  tab's `skill_ids` convention — each change sends the whole ordered array). */
+const SetContextDocumentsBody = z.object({
+  paths: z.array(z.string().min(1)),
+});
 
 export default async function agentsRoutes(appBase: FastifyInstance) {
   const app = appBase.withTypeProvider<ZodTypeProvider>();
@@ -161,6 +168,17 @@ export default async function agentsRoutes(appBase: FastifyInstance) {
           : await service.linkSkill(workspaceId, req.params.id, body.skill_id!, body.order);
       if (!links) throw new NotFoundError('Agent not found');
       return links;
+    },
+  );
+
+  app.post(
+    '/agents/:id/context-documents',
+    { schema: { params: IdParams, body: SetContextDocumentsBody } },
+    async (req) => {
+      const { workspaceId } = await getContext(app.container, req);
+      const agent = await service.setContextDocuments(workspaceId, req.params.id, req.body.paths);
+      if (!agent) throw new NotFoundError('Agent not found');
+      return agent;
     },
   );
 

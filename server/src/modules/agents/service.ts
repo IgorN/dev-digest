@@ -9,7 +9,7 @@ import type {
   ReviewStrategy,
 } from '@devdigest/shared';
 import { AgentsRepository } from './repository.js';
-import { toAgentDto, toAgentVersionDto } from './helpers.js';
+import { normalizeContextDocuments, toAgentDto, toAgentVersionDto } from './helpers.js';
 
 /**
  * A2 — agents service. Business logic for the Agents tab + Agent Editor.
@@ -159,6 +159,24 @@ export class AgentsService {
     if (!agent) return undefined;
     await this.repo.setSkills(agentId, skillIds);
     return this.skillLinks(agentId);
+  }
+
+  /**
+   * Replace the agent's ordered attached context-document paths (full ordered
+   * set per change, mirroring `setSkills`). Paths are validated (lexical
+   * safety + markdown-only, AC-19) and deduped first-occurrence-wins; a real
+   * change snapshots a new agent version (D6). Undefined → route 404.
+   */
+  async setContextDocuments(
+    workspaceId: string,
+    agentId: string,
+    paths: string[],
+  ): Promise<Agent | undefined> {
+    const normalized = normalizeContextDocuments(paths);
+    const row = await this.repo.setContextDocuments(workspaceId, agentId, normalized);
+    if (!row) return undefined;
+    const count = (await this.repo.skillIdsForAgent(agentId)).length;
+    return toAgentDto(row, count);
   }
 
   /** Link a single skill (append or set order) — additive to existing links. */

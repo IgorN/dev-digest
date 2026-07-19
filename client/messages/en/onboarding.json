@@ -1,15 +1,38 @@
 {
-  "title": "Onboarding Tour",
-  "sections": "Sections",
-  "sectionCount": "{count} sections",
+  "breadcrumbLab": "Workspace",
+  "breadcrumb": "Onboarding Tour",
+  "titlePrefix": "Onboarding for",
+  "subtitle": "Generated from an index of {count, plural, one {# file} other {# files}} · last refreshed {relative}",
+  "lastRefreshed": "Last refreshed {relative}",
+  "filesIndexed": "{count, plural, one {# file indexed} other {# files indexed}}",
   "regenerate": "Regenerate",
   "regenerating": "Regenerating…",
   "unknownError": "Unknown error",
+  "onThisPage": "On this page",
+  "open": "Open",
+  "copy": "Copy command",
+  "copied": "Copied",
+  "aria": {
+    "collapse": "Collapse section",
+    "expand": "Expand section"
+  },
+  "section": {
+    "architecture": "Architecture overview",
+    "critical-paths": "Critical paths",
+    "run-locally": "How to run locally",
+    "reading-path": "Guided reading path",
+    "first-tasks": "First tasks"
+  },
   "generate": {
     "title": "Generate onboarding tour",
-    "body": "DevDigest indexes the repo and specs, then writes a 5-section guided tour: overview, architecture, key modules, getting started, and conventions & gotchas.",
+    "body": "DevDigest indexes the repository, then writes a five-section guided tour: an architecture overview, the critical paths, how to run it locally, a guided reading path, and first tasks — all grounded in the indexed files.",
     "cta": "Generate onboarding tour",
     "generating": "Generating…"
+  },
+  "degraded": {
+    "badge": "Index unavailable",
+    "reasonLabel": "Why this tour is limited",
+    "unknownReason": "The repository index is unavailable or degraded, so this tour was built from limited facts rather than a full analysis."
   },
   "loadError": {
     "title": "Couldn’t load the onboarding tour"

@@ -161,9 +161,41 @@ export class AgentsRepository {
           ci_fail_on: row.ciFailOn,
           repo_intel: row.repoIntel,
           skills,
+          // Ordered attached context-document paths (paths only, never content).
+          // Old snapshots lack this key — AgentVersionConfig defaults it to [].
+          context_documents: row.contextDocuments ?? [],
         },
       })
       .onConflictDoNothing();
+  }
+
+  /**
+   * Replace the agent's ordered attached context-document paths (full set per
+   * change, like `setSkills`). An attachment/reorder change is a CONFIG change
+   * (D6): it bumps the version and snapshots the new config into
+   * agent_versions. A no-op set (identical ordered array) neither bumps nor
+   * snapshots. Returns undefined when the agent isn't in this workspace.
+   */
+  async setContextDocuments(
+    workspaceId: string,
+    id: string,
+    paths: string[],
+  ): Promise<AgentRow | undefined> {
+    const existing = await this.getById(workspaceId, id);
+    if (!existing) return undefined;
+
+    const changed =
+      JSON.stringify(existing.contextDocuments ?? []) !== JSON.stringify(paths);
+    if (!changed) return existing;
+
+    const nextVersion = existing.version + 1;
+    const [row] = await this.db
+      .update(t.agents)
+      .set({ contextDocuments: paths, version: nextVersion })
+      .where(and(eq(t.agents.workspaceId, workspaceId), eq(t.agents.id, id)))
+      .returning();
+    if (row) await this.snapshotVersion(row, nextVersion);
+    return row;
   }
 
   // ---- agent_versions (immutable config snapshots) ------------------------

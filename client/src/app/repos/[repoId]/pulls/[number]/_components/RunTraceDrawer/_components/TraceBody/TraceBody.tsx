@@ -6,7 +6,7 @@ import React from "react";
 import { useTranslations } from "next-intl";
 import { Badge } from "@devdigest/ui";
 import type { RunTrace, FindingRecord } from "@devdigest/shared";
-import { PROMPT_COLORS } from "../../constants";
+import { PROMPT_COLORS, SPEC_STATUS_COLORS } from "../../constants";
 import { formatSeconds, formatTokens, formatCost } from "../../helpers";
 import { s } from "../../styles";
 import { TraceSection } from "../TraceSection";
@@ -48,6 +48,29 @@ export function TraceBody({ trace, findings }: { trace: RunTrace; findings: Find
               )}
             </div>
           </Row>
+          {trace.specs_injected != null && (
+            <Row label={t("trace.config.contextDocs")}>
+              <div style={s.injectedList}>
+                {trace.specs_injected.length === 0 ? (
+                  <span style={s.specsNone}>{t("trace.config.none")}</span>
+                ) : (
+                  trace.specs_injected.map((doc) => (
+                    <div key={doc.path} style={s.injectedRow}>
+                      <span className="mono" style={s.spec}>
+                        {doc.path}
+                      </span>
+                      <span className="tnum" style={s.injectedTokens}>
+                        {t("trace.config.tokenCount", { count: doc.tokens })}
+                      </span>
+                      <Badge color={SPEC_STATUS_COLORS[doc.status].color} bg={SPEC_STATUS_COLORS[doc.status].bg}>
+                        {t(`trace.config.docStatus.${doc.status}`)}
+                      </Badge>
+                    </div>
+                  ))
+                )}
+              </div>
+            </Row>
+          )}
         </div>
       </TraceSection>
 

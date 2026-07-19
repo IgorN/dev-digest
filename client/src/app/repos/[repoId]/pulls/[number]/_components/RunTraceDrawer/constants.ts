@@ -10,6 +10,13 @@ export const LOG_HEIGHT = 420;
 export const TABS = ["trace", "log"] as const;
 export type TraceTab = (typeof TABS)[number];
 
+/** Injected context-doc status → badge colours (Configuration section). */
+export const SPEC_STATUS_COLORS = {
+  injected: { color: "var(--ok)", bg: "var(--ok-bg)" },
+  truncated: { color: "var(--warn)", bg: "var(--warn-bg)" },
+  skipped_missing: { color: "var(--crit)", bg: "var(--crit-bg)" },
+} as const;
+
 /** Prompt-assembly block accent colours (by leg). */
 export const PROMPT_COLORS = {
   system: "var(--text-muted)",
