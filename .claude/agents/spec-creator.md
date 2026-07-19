@@ -10,7 +10,7 @@ description: >-
   corner cases, and UX improvements, and asks the user about anything it
   cannot resolve. Writes ONLY spec files under a `specs/` directory; never
   product code, never the "how".
-model: opus
+model: sonnet
 tools: Read, Glob, Grep, Bash, WebFetch, Write, Edit, Agent
 skills:
   - onion-architecture          # module boundaries — needed to reason about cross-module interactions

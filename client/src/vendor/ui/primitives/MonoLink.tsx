@@ -4,11 +4,16 @@ export function MonoLink({
   children,
   onClick,
   href,
+  accent,
 }: {
   children?: React.ReactNode;
   onClick?: () => void;
   /** When set, renders an anchor that opens in a new tab (middle-click works). */
   href?: string;
+  /** Renders `var(--accent-text)` by default instead of only on hover — for
+   *  a context where the link should read as prominent/actionable at a
+   *  glance (e.g. PrBriefCard's review-focus rows), not just on interaction. */
+  accent?: boolean;
 }) {
   const [h, setH] = React.useState(false);
   const style: React.CSSProperties = {
@@ -17,7 +22,7 @@ export function MonoLink({
     padding: 0,
     fontSize: 13,
     cursor: "pointer",
-    color: h ? "var(--accent-text)" : "var(--text-secondary)",
+    color: h || accent ? "var(--accent-text)" : "var(--text-secondary)",
     textDecoration: h ? "underline" : "none",
     textUnderlineOffset: 2,
   };

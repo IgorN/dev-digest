@@ -11,7 +11,7 @@ description: >-
   criteria. Does NOT author or edit specifications — it plans against
   requirements it is given. Writes only the plan file under docs/plans/;
   never touches product code, and never runs tests or builds itself.
-model: opus
+model: sonnet
 tools: Read, Glob, Grep, Bash, Agent, Write
 skills:
   - onion-architecture          # backend layering

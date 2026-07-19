@@ -7,7 +7,7 @@ description: >-
   any diff touching auth, user input handling, file uploads, secrets, or
   API endpoints.
 tools: Read, Grep, Glob, Skill
-model: opus
+model: sonnet
 ---
 
 # Security Reviewer

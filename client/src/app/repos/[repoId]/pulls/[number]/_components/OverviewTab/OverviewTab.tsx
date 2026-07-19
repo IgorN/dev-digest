@@ -1,9 +1,10 @@
 "use client";
 
 import React from "react";
-import { SectionLabel } from "@devdigest/ui";
+import { Markdown, SectionLabel } from "@devdigest/ui";
 import { IntentCard } from "./_components/IntentCard";
 import { BlastCard } from "./_components/BlastCard";
+import { PrBriefCard } from "./_components/PrBriefCard";
 import { s } from "./styles";
 
 interface OverviewTabProps {
@@ -21,9 +22,16 @@ export function OverviewTab({ prBody, prId, diffPaths, onJumpToCode }: OverviewT
       {prBody && (
         <section>
           <SectionLabel icon="MessageSquare">Description</SectionLabel>
-          <div style={s.descriptionBox}>{prBody}</div>
+          <div style={s.descriptionBox}>
+            <Markdown>{prBody}</Markdown>
+          </div>
         </section>
       )}
+
+      {/* PrBriefCard renders its own <section> (mirrors IntentCard/BlastCard's
+         self-contained SectionLabel+Card shape) — no extra wrapper here,
+         consistent with how the two cards below are consumed directly. */}
+      <PrBriefCard prId={prId} diffPaths={diffPaths} onJumpToCode={onJumpToCode} />
 
       <div style={s.briefGrid}>
         <IntentCard prId={prId} />

@@ -73,6 +73,52 @@ beyond confirming existing tests still pass.
   new `PrBriefCard` — colored check/x list headers, bordered list rows.
 - **AD-2:** Restyle `BlastCard` (+ its private `SymbolRow`) to the same visual language — bordered
   caller rows, color-differentiated endpoint vs. cron badges.
+- **AD-3:** Restyle `PrBriefCard`'s own "Review focus" sub-section so it reads as its own block at
+  a glance, matching the design mockup: a `ListChecks` icon (colored `--accent-text`, label text
+  itself stays `--text-muted`) next to the section label, and the item-count `Badge` recolored to
+  the existing `--accent-text`/`--accent-bg` pair (was the colorless default). No prop/behavior/
+  test-surface change. A same-spirit recolor of the "Risks" sub-section's `file_refs` (muted →
+  accent) was tried and reverted per user feedback — muted reads better there specifically
+  *because* it's plain text, not a control (AC-16), and staying gray keeps that contrast legible
+  against `review_focus`'s already-accent, actually-clickable rows.
+
+## Addendum 2: cost accounting + a findings-severity input (contract change, not spec-tracked)
+User-approved, out-of-band request, decided 2026-07-19 after live verification on
+`vue-starter-kit#2`/`#1` surfaced two gaps: (a) the synthesis call's token/cost accounting was
+computed but only ever logged, never surfaced; (b) on a PR whose real risk is invisible in prose
+(e.g. a SQL-injection buried in code the model never sees — AC-6), `risk_level` predictably landed
+`medium` instead of `high`, because none of the five original inputs carry a severity signal from
+the project's OWN existing line-level reviewer. Unlike AD-1..AD-3, these two are genuine
+contract/behavior changes, not presentation-only — called out separately so they don't hide under
+the "visual polish" heading above.
+
+- **AD-4 (cost accounting):** `WhyRiskBrief` gains three new fields — `tokens_in`/`tokens_out`
+  (`z.number().int().nullish()`) and `cost_usd` (`z.number().nullish()`) — populated from
+  `synthesizeBrief`'s already-computed `SynthesizeResult` on the success path, and explicitly
+  `null` on a degraded skeleton (no call was made). **Nullish, not just nullable**: a brief
+  persisted before this change has no such keys at all (not `null`) — `.nullish()` is required for
+  `WhyRiskBrief.parse()` to keep parsing those rows post-deploy, mirroring
+  `OnboardingSection.commands`'s same backward-compat reasoning. Rendered via the existing
+  `RunCostBadge` (`variant="full"`) in `PrBriefCard`'s header — no new UI primitive.
+- **AD-5 (findings-severity input):** `BriefInputs` gains a sixth field, `findingsSummary:
+  SeverityCounts` (`{critical, warning, suggestion}`, from `pulls/status.ts` — reused as-is, not
+  redefined). Sourced by a new private `WhyRiskBriefService.gatherFindingsSummary(prId)` that
+  calls the already-available `this.repo.reviewsForPull(prId)`, filters to `kind === 'review'`,
+  dedupes via the existing `latestReviewsPerAgent` (never double-counts a re-run agent — the same
+  guard the PR-list rollup uses), drops dismissed findings (`dismissedAt != null`), and rolls up
+  with the existing `rollupSeverities`. Zero new DB queries beyond what `reviewsForPull` already
+  runs; zero new model calls (AC-1/AC-2 unaffected — this is a deterministic read, same class as
+  the existing smart-diff-counts input). Rendered in `assemble.ts` as a new, un-wrapped (`##
+  Existing review findings`, deterministic server-computed counts, not third-party text — same
+  trust class as the smart-diff-counts line) section, with `BRIEF_SYSTEM_PROMPT` updated to
+  instruct that a nonzero `critical` count is a strong `risk_level: "high"` signal regardless of
+  how mundane the PR's own description reads. **Cross-module note (same shape as Rec-4):** this is
+  `why-risk-brief` reading from `pulls/status.ts`'s pure helpers — flagged here for the same
+  architecture-review attention Rec-4 already got for the `SmartDiffService`/`ContextService`
+  cross-module reads, not silently added.
+- Both are implemented directly (no new implementer dispatch / review-gate re-run) given their
+  small, additive, backward-compatible shape — typecheck + the full unit/integration/client test
+  lanes re-run afterward as the self-verify gate.
 
 ## Open questions & recommendations
 The spec's own six `NEEDS CLARIFICATION` items already carry an explicit "default assumed" this

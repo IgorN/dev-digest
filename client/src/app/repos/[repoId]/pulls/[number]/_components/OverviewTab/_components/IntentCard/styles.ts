@@ -24,6 +24,11 @@ export const s = {
     gap: 8,
     minWidth: 0,
   } satisfies CSSProperties,
+  listHeader: {
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
+  } satisfies CSSProperties,
   listLabel: {
     fontSize: 11,
     fontWeight: 700,
@@ -39,13 +44,20 @@ export const s = {
     padding: 0,
     listStyle: "none",
   } satisfies CSSProperties,
-  listItem: {
+  // Bordered row treatment for a single in-scope/out-of-scope item — the
+  // equivalent of OnboardingView/styles.ts's pathRow/readingRow pattern,
+  // colocated here with this card's own spacing values.
+  listItemRow: {
     display: "flex",
     gap: 8,
     alignItems: "flex-start",
     fontSize: 13.5,
     lineHeight: 1.5,
     color: "var(--text-secondary)",
+    border: "1px solid var(--border)",
+    borderRadius: 8,
+    padding: "6px 10px",
+    background: "var(--bg-elevated)",
   } satisfies CSSProperties,
   listItemDot: {
     flexShrink: 0,

@@ -7,7 +7,7 @@
 
 import React from "react";
 import { useTranslations } from "next-intl";
-import { Card, SectionLabel, EmptyState, Button, Skeleton } from "@devdigest/ui";
+import { Card, SectionLabel, EmptyState, Button, Skeleton, Icon, type IconName } from "@devdigest/ui";
 import { useIntent, useRecomputeIntent } from "@/lib/hooks/intent";
 import { s } from "./styles";
 
@@ -49,8 +49,18 @@ export function IntentCard({ prId }: { prId: string | null }) {
             </div>
             <p style={s.summary}>{intent.intent}</p>
             <div style={s.lists}>
-              <IntentList label={t("card.inScope")} items={intent.in_scope} />
-              <IntentList label={t("card.outOfScope")} items={intent.out_of_scope} />
+              <IntentList
+                label={t("card.inScope")}
+                icon="CheckCircle"
+                iconColor="var(--ok)"
+                items={intent.in_scope}
+              />
+              <IntentList
+                label={t("card.outOfScope")}
+                icon="XCircle"
+                iconColor="var(--crit)"
+                items={intent.out_of_scope}
+              />
             </div>
           </>
         )}
@@ -59,16 +69,30 @@ export function IntentCard({ prId }: { prId: string | null }) {
   );
 }
 
-function IntentList({ label, items }: { label: string; items: string[] }) {
+function IntentList({
+  label,
+  icon,
+  iconColor,
+  items,
+}: {
+  label: string;
+  icon: IconName;
+  iconColor: string;
+  items: string[];
+}) {
+  const ListIcon = Icon[icon];
   return (
     <div style={s.listCol}>
-      <span style={s.listLabel}>{label}</span>
+      <div style={s.listHeader}>
+        <ListIcon size={13} style={{ color: iconColor }} />
+        <span style={s.listLabel}>{label}</span>
+      </div>
       {items.length === 0 ? (
         <span style={s.emptyList}>—</span>
       ) : (
         <ul style={s.list}>
           {items.map((item, i) => (
-            <li key={i} style={s.listItem}>
+            <li key={i} style={s.listItemRow}>
               <span style={s.listItemDot}>•</span>
               <span>{item}</span>
             </li>
