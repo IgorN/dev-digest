@@ -8,12 +8,15 @@
 # `activation` cases are inherently indicative (not blocking) on non-Anthropic models — a capable
 # model may perform the underlying action directly instead of invoking the Skill tool.
 #
-# Model: OpenRouter, default google/gemini-2.5-flash — openai/gpt-4o-mini was tried first and
-# rejected after local repro: it doesn't just skip dispatching architecture-reviewer, it fabricates
-# a plausible "completed" response for a subagent call that never ran, and separately performs the
-# engineering-insights capture itself by editing the wrong file instead of invoking the Skill tool.
-# See evals/README.md "Which cheap model — verified". Override via workflow_dispatch inputs
-# (Actions tab → Run workflow), no code change needed.
+# Model: OpenRouter, default deepseek/deepseek-v4-flash (same default model DevDigest itself uses
+# elsewhere — see server/src/vendor/shared/contracts/platform.ts). NOT yet verified here for
+# subagent dispatch / skill activation the way evals/README.md's "Which cheap model — verified"
+# table verified google/gemini-2.5-flash (reliable) and openai/gpt-4o-mini (rejected — fabricates a
+# plausible "completed" response for a subagent call that never ran, and performs the
+# engineering-insights capture itself by editing the wrong file instead of invoking the Skill tool).
+# Kept NON-BLOCKING regardless — check this job's own log for what v4-flash actually did. Override
+# via workflow_dispatch inputs (Actions tab → Run workflow) — e.g. fall back to
+# google/gemini-2.5-flash there if dispatch/activation turns out unreliable.
 name: eval-workflow
 
 on:
@@ -54,8 +57,8 @@ concurrency:
 
 env:
   EVAL_BACKEND: openrouter
-  EVAL_MODEL: ${{ inputs.model || 'google/gemini-2.5-flash' }}
-  EVAL_JUDGE_MODEL: ${{ inputs.judge_model || 'google/gemini-2.5-flash' }}
+  EVAL_MODEL: ${{ inputs.model || 'deepseek/deepseek-v4-flash' }}
+  EVAL_JUDGE_MODEL: ${{ inputs.judge_model || 'deepseek/deepseek-v4-flash' }}
   OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
   OPENROUTER_BASE_URL: http://localhost:4000
 

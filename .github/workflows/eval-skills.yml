@@ -3,8 +3,9 @@
 # that skill has a written evals/skills/<name>/*.eval.ts. Content tier talks to OpenRouter
 # directly — no proxy needed — so this is cheap, fast, and BLOCKING. See evals/README.md.
 #
-# Model: OpenRouter, default openai/gpt-4o-mini — override via workflow_dispatch inputs
-# (Actions tab → Run workflow), no code change needed.
+# Model: OpenRouter, default deepseek/deepseek-v4-flash (same default model DevDigest itself uses
+# elsewhere — see server/src/vendor/shared/contracts/platform.ts) — override via workflow_dispatch
+# inputs (Actions tab → Run workflow), no code change needed.
 name: eval-skills
 
 on:
@@ -41,8 +42,8 @@ concurrency:
 
 env:
   EVAL_BACKEND: openrouter
-  EVAL_MODEL: ${{ inputs.model || 'openai/gpt-4o-mini' }}
-  EVAL_JUDGE_MODEL: ${{ inputs.judge_model || 'openai/gpt-4o-mini' }}
+  EVAL_MODEL: ${{ inputs.model || 'deepseek/deepseek-v4-flash' }}
+  EVAL_JUDGE_MODEL: ${{ inputs.judge_model || 'deepseek/deepseek-v4-flash' }}
   OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
 
 jobs:

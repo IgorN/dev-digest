@@ -3,13 +3,14 @@
 # if that agent has a written evals/agents/<name>/*.eval.ts. Needs the LiteLLM proxy (the Agent
 # SDK speaks the Anthropic wire protocol only).
 #
-# Model: OpenRouter, default google/gemini-2.5-flash — the only cheap model verified (locally
-# reproduced) to reliably dispatch subagents. openai/gpt-4o-mini was tried first and rejected:
-# it doesn't just fail to dispatch, it fabricates a plausible-sounding "completed" response for a
-# subagent call that never actually ran (subagents: none in the trace) — see evals/README.md
-# "Which cheap model — verified". Kept NON-BLOCKING regardless, since any cheap model can still be
-# flaky under load (see README's rate-limit caveat). Override via workflow_dispatch inputs
-# (Actions tab → Run workflow), no code change needed.
+# Model: OpenRouter, default deepseek/deepseek-v4-flash (same default model DevDigest itself uses
+# elsewhere — see server/src/vendor/shared/contracts/platform.ts). NOT yet verified here for
+# subagent dispatch the way evals/README.md's "Which cheap model — verified" table verified
+# google/gemini-2.5-flash (dispatches reliably) and deepseek/deepseek-chat (does NOT — fabricates
+# a plausible "completed" response for a subagent call that never ran). Kept NON-BLOCKING regardless
+# — this job's own log is the place to check whether v4-flash actually dispatches. Override via
+# workflow_dispatch inputs (Actions tab → Run workflow), no code change needed — e.g. fall back to
+# google/gemini-2.5-flash there if dispatch turns out unreliable.
 name: eval-agents
 
 on:
@@ -46,8 +47,8 @@ concurrency:
 
 env:
   EVAL_BACKEND: openrouter
-  EVAL_MODEL: ${{ inputs.model || 'google/gemini-2.5-flash' }}
-  EVAL_JUDGE_MODEL: ${{ inputs.judge_model || 'google/gemini-2.5-flash' }}
+  EVAL_MODEL: ${{ inputs.model || 'deepseek/deepseek-v4-flash' }}
+  EVAL_JUDGE_MODEL: ${{ inputs.judge_model || 'deepseek/deepseek-v4-flash' }}
   OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
   OPENROUTER_BASE_URL: http://localhost:4000
 
