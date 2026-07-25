@@ -140,26 +140,6 @@ return repo;
 
 ---
 
-## 6. Hand-built error envelope instead of a typed throw
-
-**Symptom:** a route or service builds `reply.status(404).send({ error: ... })`
-by hand instead of throwing a typed error.
-
-**Why it breaks the rule:** duplicates the boundary's job and drifts from the
-stable `{ error: { code, message, details } }` contract. The central error
-handler already serializes typed errors.
-
-```ts
-// ✗ before
-if (!repo) return reply.status(404).send({ error: { code: 'not_found', message: 'Repo not found' } });
-```
-```ts
-// ✓ after — throw; the boundary serializes
-if (!repo) throw new NotFoundError('Repo not found');
-```
-
----
-
 ## 7. Cross-module reach-around (importing another module's repository)
 
 **Symptom:** `modules/reviews/service.ts` imports
@@ -192,5 +172,5 @@ Run down this list against a backend diff:
 - [ ] `helpers.ts` / `reviewer-core` contain zero `await` on I/O.
 - [ ] Repository methods are intention-named and return rows/DTOs, not query builders.
 - [ ] Every repository query is workspace-scoped (or a comment says why not).
-- [ ] Errors are typed throws, not hand-built envelopes; no `reply`/status in services.
+- [ ] No `reply`/status in services.
 - [ ] No import from a sibling module's `repository.ts` — go through `container`.

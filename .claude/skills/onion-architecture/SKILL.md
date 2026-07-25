@@ -110,16 +110,6 @@ reviewing, flag violations with the fix.
    `container.secrets.get('GITHUB_TOKEN')`, never `process.env.GITHUB_TOKEN`.
    After a Settings change, call `container.invalidateSecretCaches()`.
 
-## Errors cross layers as typed domain errors
-
-Throw the typed errors from [`platform/errors.ts`](../../../server/src/platform/errors.ts)
-(`NotFoundError`, `ValidationError`, `ExternalServiceError`, `ConfigError`, or a
-raw `AppError(code, message, status)`) from the **service** (or helpers, for pure
-validation like `parseRepoUrl`). The central Fastify error handler maps them to
-the structured `{ error: { code, message, details } }` envelope. Routes should
-**not** hand-build error responses or `reply.status(500)` — throw and let the
-boundary serialize. This keeps HTTP-shaping out of the inner rings.
-
 ## Pragmatic exceptions (don't add ceremony that buys nothing)
 
 Onion is worth only as much testability as it buys. Do **not** mechanically
