@@ -8,6 +8,16 @@ vi.mock("../../../../../../../lib/hooks/reviews", () => ({
   useFindingAction: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 
+// FindingsPanel renders real FindingCards, which call this hook unconditionally
+// (react-query hook rules) — mock it so no QueryClientProvider is needed here.
+vi.mock("@/lib/hooks/eval", () => ({
+  useCreateEvalCaseFromFinding: () => ({ mutate: vi.fn(), isPending: false }),
+}));
+
+vi.mock("@/components/EvalCaseEditor", () => ({
+  EvalCaseEditor: () => <div data-testid="eval-case-editor" />,
+}));
+
 import { FindingsPanel } from "./FindingsPanel";
 
 afterEach(cleanup);

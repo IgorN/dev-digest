@@ -46,7 +46,15 @@ export function MetricCard({
         {trend && <Sparkline data={trend} color={color || "var(--accent)"} w={56} h={20} />}
       </div>
       <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginTop: 12 }}>
-        <span className="tnum" style={{ fontSize: 32, fontWeight: 700, letterSpacing: "-0.02em" }}>
+        <span
+          className="tnum"
+          style={{
+            fontSize: 32,
+            fontWeight: 700,
+            letterSpacing: "-0.02em",
+            color: color || "var(--text-primary)",
+          }}
+        >
           {value}
           {suffix && <span style={{ fontSize: 18, color: "var(--text-muted)" }}>{suffix}</span>}
         </span>
