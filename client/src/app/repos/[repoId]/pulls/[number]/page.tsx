@@ -14,10 +14,11 @@ import { PrDetailHeader } from "./_components/PrDetailHeader";
 import { OverviewTab } from "./_components/OverviewTab";
 import { FindingsTab } from "./_components/FindingsTab";
 import { DiffTab } from "./_components/DiffTab";
-import RunTraceDrawer from "./_components/RunTraceDrawer";
+import RunTraceDrawer from "@/components/RunTraceDrawer";
 import { usePullDetail, usePulls } from "../../../../../lib/hooks";
 import { useQueryClient } from "@tanstack/react-query";
 import { usePrReviews, useCancelRun, usePrActiveRuns, usePrRuns, useDeleteRun } from "../../../../../lib/hooks/reviews";
+import { useLatestMultiRun } from "../../../../../lib/hooks/multi-runs";
 import { useActiveRepo, useRepoNotFound } from "../../../../../lib/repo-context";
 import { ApiError } from "../../../../../lib/api";
 import { githubPrUrl, githubBlobUrl } from "../../../../../lib/github-urls";
@@ -56,6 +57,11 @@ export default function PRDetailPage() {
   const invalidateRunHistory = () => {
     if (prId) qc.invalidateQueries({ queryKey: ["pr-runs", prId] });
   };
+
+  // This PR's most recent multi-agent run, if any. "None" arrives as a
+  // SUCCESSFUL query with `multi_run: null` (2xx, not 404), so the timeline's
+  // re-entry row branches on the payload — never on `isError` (AC-22b).
+  const { data: latestMultiRun } = useLatestMultiRun({ prId });
 
   const tab = search.get("tab") ?? "overview";
   const traceRunId = search.get("trace");
@@ -188,6 +194,8 @@ export default function PRDetailPage() {
             cancelMutation={cancel}
             targetFindingId={focusFinding?.id ?? null}
             targetFindingNonce={focusFinding?.n ?? 0}
+            latestMultiRun={latestMultiRun?.multi_run ?? null}
+            onOpenMultiRun={(id) => router.push(`/multi-agent-review/${id}`)}
             onOpenTrace={(id) => setParam("trace", id)}
             onDelete={(id) => {
               if (window.confirm("Delete this run from history? (its logs are removed too)"))

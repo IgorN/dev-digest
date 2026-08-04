@@ -59,6 +59,7 @@ describe("EvalDashboardIndex", () => {
           {
             agent_id: "a1",
             agent_name: "Security Reviewer",
+            agent_model: "gpt-4.1",
             dashboard: {
               owner_kind: "agent",
               owner_id: "a1",
@@ -132,6 +133,7 @@ describe("EvalDashboardIndex", () => {
           {
             agent_id: "a2",
             agent_name: "Docs Reviewer",
+            agent_model: "gpt-4o-mini",
             dashboard: {
               owner_kind: "agent",
               owner_id: "a2",

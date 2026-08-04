@@ -36,6 +36,26 @@ export const NAV: NavGroup[] = [
       { key: "eval", label: "Eval Dashboard", icon: "FlaskConical", href: "/eval", gKey: "e" },
     ],
   },
+  {
+    section: "GLOBAL",
+    items: [
+      // href points at the CONDITIONAL entry point, so a returning user lands on
+      // their last multi-run result rather than a blank form.
+      // `key` must stay "multi-agent" — it is consumed by shell.json's
+      // `nav.multi-agent` and by activeKeyFor() in app-shell/helpers.ts.
+      // Icon is "Users" per the design (chrome.jsx:17) — NOT "Cpu", which the
+      // Agents entry already owns; two identical glyphs in one sidebar read as
+      // a bug.
+      { key: "multi-agent", label: "Multi-Agent Review", icon: "Users", href: "/multi-agent-review", gKey: "m" },
+      // `key` must stay "ci-runs" — the other two legs of the nav triad already
+      // ship it: shell.json's `nav.ci-runs` (which the command palette reads via
+      // t(`nav.${it.key}`)) and activeKeyFor() in app-shell/helpers.ts. Spelling
+      // it "ciRuns"/"ci_runs" here breaks only at RUNTIME (MISSING_MESSAGE on
+      // every page + a sidebar item that never highlights).
+      // Label/icon come from the design (chrome.jsx:19). `gKey: "i"` was free.
+      { key: "ci-runs", label: "CI Runs", icon: "Workflow", href: "/ci-runs", gKey: "i" },
+    ],
+  },
 ];
 
 export const SETTINGS_ITEM: NavItemDef = {
@@ -68,6 +88,8 @@ export const SHORTCUTS: ShortcutDef[] = [
   { keys: "g x", label: "Go to Project Context", group: "Navigation" },
   { keys: "g o", label: "Go to Onboarding Tour", group: "Navigation" },
   { keys: "g e", label: "Go to Eval Dashboard", group: "Navigation" },
+  { keys: "g m", label: "Go to Multi-Agent Review", group: "Navigation" },
+  { keys: "g i", label: "Go to CI Runs", group: "Navigation" },
   { keys: "j / k", label: "Next / previous finding", group: "Findings" },
   { keys: "a", label: "Accept finding", group: "Findings" },
   { keys: "d", label: "Dismiss finding", group: "Findings" },

@@ -26,6 +26,16 @@ Two more agents sit outside this per-feature pipeline: `investigator` (a
 narrower, cheaper codebase-lookup agent) and `insight-curator` (a periodic
 maintenance pass over accumulated `INSIGHTS.md` entries).
 
+**Sub-agent fan-out is a cost decision, not just a context one.** `spec-creator`
+and `implementation-planner` hold the `Agent` tool and block while their
+children run. A stall over ~5 minutes expires the prompt cache and re-writes the
+parent's whole accumulated prefix at cache-write rates — and the prefix only
+grows, so a late fan-out costs far more than an early one. Both are instructed
+to delegate once, in a single parallel batch, near the start of their run. When
+the orchestrator already has investigation results, passing them in the brief
+beats having the agent re-derive them: it removes the stall and the duplicate
+reads at the same time. See `docs/retros/ledger.md` for the measured numbers.
+
 | Agent                    | Access                 | Model     | Role                                               |
 |--------------------------|------------------------|-----------|----------------------------------------------------|
 | `researcher`             | read-only + web        | `sonnet`  | grounding research: this repo and/or the web       |
@@ -109,7 +119,9 @@ to R/AC ids. Knows the pipeline's blind spots: e2e work and
 vendored-contract changes (`*/src/vendor/shared/`) get owner
 `orchestrator/human`, not a parallel `implementer`. **Never runs tests or
 builds itself** (the former token sink) — acceptance names the commands the
-implementers will run.
+implementers will run. Diffs the two vendored `shared` copies before planning
+any contract change, so pre-existing hand-sync drift surfaces as a planned
+task instead of stalling a parallel run.
 
 - Tools: `Read, Glob, Grep, Bash, Agent, Write`.
 - Model: `opus` (planning quality benefits from a strong model).
@@ -126,6 +138,10 @@ reported for the orchestrator to sync both copies. Self-review is
 deliberately narrow: does the code match the spec, and do the relevant
 tests pass — no architecture/security review, no new test suites. Reports
 **insight candidates** back so discoveries survive the discarded context.
+Destructive git is forbidden outright (`stash`, `reset`, `checkout --`,
+`restore`, `clean`, commits, branch switching): instances share one checkout
+with each other and with the orchestrator's uncommitted work, so any of those
+silently destroys work the agent can't see.
 
 - Tools: `Read, Write, Edit, Bash, Grep, Glob, Skill, TodoWrite`.
 - Model: `inherit`.

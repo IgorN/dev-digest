@@ -32,12 +32,14 @@ import type { Agent, EvalCase, EvalCaseWithLatestRun, EvalRunResult } from "@dev
 import { useAgentEvalDashboard, useDeleteEvalCase, useEvalCases, useRunEvalBatch } from "@/lib/hooks/eval";
 import { EvalCaseEditor } from "@/components/EvalCaseEditor";
 import {
+  caseExpectationType,
   casePassState,
   countActual,
   deltaPercentPoints,
   expectedCount,
   formatPercent,
   highestSeverityBadge,
+  passRateColor,
   runFailureBreakdown,
   toRunRecord,
 } from "./helpers";
@@ -118,11 +120,13 @@ export function EvalsTab({ agent }: { agent: Agent }) {
         </div>
       ) : null}
 
+      <p style={s.scoringNote}>{t("evalsTab.scoringNote")}</p>
+
       <div style={s.actions}>
-        <Button kind="primary" icon="Play" onClick={handleRunAll} loading={runAll.isPending}>
+        <Button kind="secondary" icon="Play" onClick={handleRunAll} loading={runAll.isPending}>
           {runAll.isPending ? t("evalsTab.running") : t("evalsTab.runAll")}
         </Button>
-        <Button kind="secondary" icon="Plus" onClick={() => setEditorState({ evalCase: null })}>
+        <Button kind="primary" icon="Plus" onClick={() => setEditorState({ evalCase: null })}>
           {t("evalsTab.newCase")}
         </Button>
         <Link href={`/eval/${agent.id}`} style={s.dashboardLink}>
@@ -133,14 +137,7 @@ export function EvalsTab({ agent }: { agent: Agent }) {
       <div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
           <h3 style={{ ...s.h3, marginBottom: 0 }}>{t("evalsTab.casesHeading")}</h3>
-          {cases && cases.length > 0 && (
-            <Badge>
-              {t("evalsTab.casesPassing", {
-                passed: cases.filter((c) => casePassState(c, sessionResults[c.id]) === true).length,
-                total: cases.length,
-              })}
-            </Badge>
-          )}
+          {cases && cases.length > 0 && <CasesSummaryBadges cases={cases} sessionResults={sessionResults} t={t} />}
         </div>
         {casesLoading ? (
           <div style={s.list}>
@@ -177,6 +174,34 @@ export function EvalsTab({ agent }: { agent: Agent }) {
         />
       )}
     </div>
+  );
+}
+
+/** "X/Y passing" (coloured by pass rate, `passed/ran` — excluding cases that
+   have never run) + a separate neutral "N cases" total (including never-run
+   ones), mirroring the design's two-badge treatment. */
+function CasesSummaryBadges({
+  cases,
+  sessionResults,
+  t,
+}: {
+  cases: EvalCaseWithLatestRun[];
+  sessionResults: Record<string, EvalRunResult>;
+  t: ReturnType<typeof useTranslations>;
+}) {
+  const states = cases.map((c) => casePassState(c, sessionResults[c.id]));
+  const ran = states.filter((s) => s !== null);
+  const passed = ran.filter((s) => s === true).length;
+
+  return (
+    <>
+      {ran.length > 0 && (
+        <Badge color={passRateColor(passed / ran.length)}>
+          {t("evalsTab.casesPassing", { passed, total: ran.length })}
+        </Badge>
+      )}
+      <Badge>{t("evalsTab.casesTotal", { total: cases.length })}</Badge>
+    </>
   );
 }
 
@@ -225,6 +250,7 @@ function CaseRow({
       ? runFailureBreakdown(persisted.actual_output)
       : null;
   const badge = highestSeverityBadge(evalCase.expected_output);
+  const expectationType = caseExpectationType(evalCase);
 
   return (
     <div data-testid={`eval-case-row-${evalCase.id}`}>
@@ -235,7 +261,14 @@ function CaseRow({
             <span style={s.rowStatusLabel}>{statusLabel}</span>
           </span>
           <div style={s.rowMain}>
-            <div style={s.rowName}>{evalCase.name}</div>
+            <div style={s.rowNameRow}>
+              <span style={s.rowName}>{evalCase.name}</span>
+              {expectationType && (
+                <Badge color="var(--accent)" mono style={s.rowTypeBadge}>
+                  {t(`evalsTab.expectationType.${expectationType}`)}
+                </Badge>
+              )}
+            </div>
             <div style={s.rowSubtitle}>
               {t("evalsTab.caseSubtitle", { expected: expectedCount(evalCase), got: got ?? "—" })}
             </div>

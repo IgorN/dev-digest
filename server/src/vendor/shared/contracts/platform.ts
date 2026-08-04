@@ -273,9 +273,13 @@ export const IndexStatus = z.object({
 export type IndexStatus = z.infer<typeof IndexStatus>;
 
 // ---- Run request (review trigger; owned by A2, contract lives here) ----
+// Resolution precedence: `agentIds` (when non-empty) → `agentId` → `all`.
+// `agentIds` is the multi-agent picker's channel; `agentId`/`all` stay for the
+// pre-existing single-agent and run-all paths, which must keep working unchanged.
 export const RunRequest = z.object({
   agentId: z.string().optional(),
   all: z.boolean().optional(),
+  agentIds: z.array(z.string()).optional(),
 });
 export type RunRequest = z.infer<typeof RunRequest>;
 

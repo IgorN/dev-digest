@@ -3,7 +3,7 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import { Badge, Icon, CircularScore, type IconName } from "@devdigest/ui";
-import type { RunSummary, PrCommit, FindingRecord } from "@devdigest/shared";
+import type { RunSummary, PrCommit, FindingRecord, LatestMultiRunRef } from "@devdigest/shared";
 import { RunCostBadge } from "@/components/RunCostBadge";
 import { FindingsSummary } from "@/components/FindingsSummary";
 
@@ -75,9 +75,22 @@ const commitRowStyle: React.CSSProperties = {
   background: "transparent",
 };
 
+// The multi-agent entry is a NAVIGATION row, not a run row: activating it opens
+// an existing multi-run's result view and launches nothing (AC-21a).
+const multiRunRowStyle: React.CSSProperties = {
+  ...rowStyle,
+  // Whole shorthand replaced (never mixed with a border*Color longhand — see
+  // client/INSIGHTS.md 2026-07-30).
+  border: "1px solid var(--accent)",
+  cursor: "pointer",
+  fontFamily: "inherit",
+  color: "var(--text-primary)",
+};
+
 type TimelineItem =
   | { kind: "run"; ts: number; run: RunSummary }
-  | { kind: "commit"; ts: number; commit: PrCommit };
+  | { kind: "commit"; ts: number; commit: PrCommit }
+  | { kind: "multiRun"; ts: number; multiRun: LatestMultiRunRef };
 
 /** Epoch ms for sorting; unparseable / missing timestamps sort last. */
 function tsOf(s: string | null | undefined): number {
@@ -93,6 +106,8 @@ export function RunHistory({
   onGoToReview,
   onDelete,
   findingsByRunId,
+  latestMultiRun = null,
+  onOpenMultiRun,
 }: {
   runs: RunSummary[];
   commits?: PrCommit[];
@@ -103,9 +118,16 @@ export function RunHistory({
   onDelete?: (runId: string) => void;
   /** This run's findings, keyed by run_id — powers the per-run severity counts + tooltip. */
   findingsByRunId?: Map<string, FindingRecord[]>;
+  /** This PR's most recent multi-run (server-resolved), or null when it has none.
+     Non-null adds a re-entry row to the timeline (AC-21a/AC-21b). */
+  latestMultiRun?: LatestMultiRunRef | null;
+  /** Open that multi-run's result view. Pure navigation — creates no run. */
+  onOpenMultiRun?: (multiRunId: string) => void;
 }) {
   const t = useTranslations("prReview");
-  if (runs.length === 0 && commits.length === 0) return null;
+  const tm = useTranslations("multiAgent");
+  // A PR whose only history is a multi-run must still render the timeline.
+  if (runs.length === 0 && commits.length === 0 && !latestMultiRun) return null;
 
   const items: TimelineItem[] = [
     ...runs.map((run) => ({ kind: "run" as const, ts: tsOf(run.ran_at), run })),
@@ -114,6 +136,11 @@ export function RunHistory({
       ts: tsOf(commit.committed_at),
       commit,
     })),
+    // The server already resolved "most recent by the multi-run's own
+    // timestamp" — the client does no ordering of its own (AC-21b).
+    ...(latestMultiRun
+      ? [{ kind: "multiRun" as const, ts: tsOf(latestMultiRun.ran_at), multiRun: latestMultiRun }]
+      : []),
   ].sort((a, b) => b.ts - a.ts);
 
   return (
@@ -148,6 +175,33 @@ export function RunHistory({
                 </span>
               )}
             </div>
+          );
+        }
+
+        if (item.kind === "multiRun") {
+          const m = item.multiRun;
+          return (
+            <button
+              key={`multi-run:${m.id}`}
+              type="button"
+              aria-label={tm("timeline.openMultiRun")}
+              title={tm("timeline.openMultiRun")}
+              onClick={() => onOpenMultiRun?.(m.id)}
+              style={multiRunRowStyle}
+            >
+              <Badge color="var(--accent)" bg="var(--accent-bg)" icon="Users">
+                {tm("timeline.multiRunLabel")}
+              </Badge>
+              <span style={{ fontSize: 13, fontWeight: 600, flex: 1, minWidth: 0, textAlign: "left" }}>
+                {tm("timeline.openMultiRun")}
+              </span>
+              {m.ran_at && (
+                <span style={{ fontSize: 11, color: "var(--text-muted)", flexShrink: 0 }}>
+                  {new Date(m.ran_at).toLocaleTimeString()}
+                </span>
+              )}
+              <Icon.ArrowRight size={13} style={{ color: "var(--text-muted)", flexShrink: 0 }} />
+            </button>
           );
         }
 

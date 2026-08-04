@@ -2,7 +2,7 @@ import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
 import { render, screen, cleanup, fireEvent, within } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import type { RunTrace } from "@devdigest/shared";
-import messages from "../../../../../../../../messages/en/runs.json"; // apps/web/messages/en/runs.json
+import messages from "../../../messages/en/runs.json"; // client/messages/en/runs.json
 
 // Mock the trace hooks so the drawer renders without a query client / SSE.
 // `mockState.trace` is swapped per test (old-shape trace vs specs_injected trace).
@@ -36,10 +36,10 @@ const INJECTED_TRACE: RunTrace = {
   ],
 };
 
-vi.mock("../../../../../../../lib/hooks/trace", () => ({
+vi.mock("@/lib/hooks/trace", () => ({
   useRunTrace: () => ({ data: mockState.trace, isLoading: false }),
 }));
-vi.mock("../../../../../../../lib/hooks/reviews", () => ({
+vi.mock("@/lib/hooks/reviews", () => ({
   useRunEvents: () => ({ events: [], running: false }),
 }));
 

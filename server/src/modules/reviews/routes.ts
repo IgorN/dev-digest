@@ -5,11 +5,12 @@ import type { RunEvent } from '@devdigest/shared';
 import { getContext } from '../_shared/context.js';
 import { IdParams } from '../_shared/schemas.js';
 import { NotFoundError } from '../../platform/errors.js';
+import { MultiRunService } from '../multi-runs/service.js';
 import { ReviewService } from './service.js';
 
 /**
  * reviews module.
- *   POST   /pulls/:id/review  {agentId} | {all:true}  → run review(s); returns runs
+ *   POST   /pulls/:id/review  {agentIds} | {agentId} | {all:true} → run review(s); returns runs
  *   GET    /runs/:id/events                            → SSE stream of RunEvent (replay-first)
  *   GET    /runs/:id/trace                             → the single-document RunTrace
  *   GET    /pulls/:id/reviews                          → persisted reviews + findings for a PR
@@ -20,16 +21,34 @@ export default async function reviewsRoutes(appBase: FastifyInstance) {
   const app = appBase.withTypeProvider<ZodTypeProvider>();
   const { container } = app;
   const service = new ReviewService(container);
+  const multiRuns = new MultiRunService(container);
 
   // ---- Run a review (manual trigger) -------------------------------
   // Tight per-route limit: each call can fan out to expensive LLM runs.
-  // Body stays a tolerant manual parse (both fields optional; empty body is OK).
+  // Body stays a tolerant manual parse (all fields optional; empty body is OK).
+  //
+  // Resolution precedence is `agentIds` (non-empty) → `agentId` → `all`. A
+  // non-empty `agentIds` is the multi-agent channel and delegates wholesale to
+  // MultiRunService, which resolves/creates/links the fan-out in its own module
+  // — the legacy single-agent and run-all paths below stay byte-for-byte as
+  // they were and return no `multi_run_id`.
   app.post(
     '/pulls/:id/review',
     { schema: { params: IdParams }, config: { rateLimit: { max: 10, timeWindow: '1 minute' } } },
     async (req) => {
     const { workspaceId } = await getContext(container, req);
     const body = RunRequest.parse(req.body ?? {});
+
+    if (body.agentIds && body.agentIds.length > 0) {
+      const { runs, multiRunId } = await multiRuns.launch(
+        workspaceId,
+        req.params.id,
+        body.agentIds,
+        req.log,
+      );
+      return { pr_id: req.params.id, runs, reviews: [], multi_run_id: multiRunId };
+    }
+
     const targets = await service.resolveTargets(workspaceId, {
       ...(body.agentId !== undefined ? { agentId: body.agentId } : {}),
       ...(body.all !== undefined ? { all: body.all } : {}),

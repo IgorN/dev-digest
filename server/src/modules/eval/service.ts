@@ -534,7 +534,7 @@ export class EvalService {
     const agents: EvalAgentSummary[] = [];
     for (const agent of enabledAgents) {
       const dashboard = await this.getAgentDashboard(workspaceId, agent.id);
-      agents.push({ agent_id: agent.id, agent_name: agent.name, dashboard });
+      agents.push({ agent_id: agent.id, agent_name: agent.name, agent_model: agent.model, dashboard });
     }
 
     const workspaceBatches = await this.evalRepo.recentBatchesWorkspace(

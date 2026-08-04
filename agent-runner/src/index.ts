@@ -18,9 +18,10 @@
  * real world and maps the result onto `process.exitCode`.
  */
 import path from 'node:path';
-import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { appendFileSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { OpenRouterProvider } from '@devdigest/reviewer-core';
 import { runCi, type PostAs } from './run.js';
+import { annotationsFor, finalLineFor, jobSummaryFor } from './summary.js';
 
 function resolvePostAs(value: string | undefined): PostAs {
   if (value === 'github_review' || value === 'pr_comment' || value === 'none') return value;
@@ -49,14 +50,49 @@ export async function main(env: NodeJS.ProcessEnv = process.env): Promise<number
     writeFile: writeFileSync,
   });
 
+  // `artifact === null` is the discriminant — truthiness on `error` does not
+  // narrow this union (insights/INSIGHTS.md, 2026-07-08).
   if (result.artifact === null) {
     console.error(`[agent-runner] FAILED: ${result.error}`);
-  } else {
-    console.log(
-      `[agent-runner] findings=${result.artifact.findings_count} blockers=${result.blockers} ` +
-        `gateTriggered=${result.gateTriggered} posted=${result.posted.kind}`,
-    );
+    return result.exitCode;
   }
+
+  // Inline annotations: one per finding, placed on the diff line in
+  // "Files changed" and listed in the run's Annotations block.
+  for (const line of annotationsFor(result.findings)) console.log(line);
+
+  // The run page itself. Written only when Actions provides the file — running
+  // the bundle locally must not crash on a missing env var.
+  const summaryPath = env.GITHUB_STEP_SUMMARY;
+  if (summaryPath) {
+    const summary = jobSummaryFor({
+      agent: result.artifact.agent,
+      findings: result.findings,
+      blockers: result.blockers,
+      gateTriggered: result.gateTriggered,
+      failOn: result.failOn,
+      costUsd: result.artifact.cost_usd ?? 0,
+      durationMs: result.artifact.duration_ms ?? 0,
+      prNumber: result.artifact.pr_number ?? 0,
+      postedTo: result.posted.kind,
+    });
+    try {
+      appendFileSync(summaryPath, summary);
+    } catch (err) {
+      // A summary is reporting, not the result. Losing it must never turn a
+      // completed review into a failed step.
+      console.error(`[agent-runner] could not write job summary: ${String(err)}`);
+    }
+  }
+
+  console.log(
+    finalLineFor({
+      findings: result.artifact.findings_count,
+      blockers: result.blockers,
+      gateTriggered: result.gateTriggered,
+      failOn: result.failOn,
+    }),
+  );
   return result.exitCode;
 }
 

@@ -1,6 +1,7 @@
 {
   "_note": "USD per 1M tokens. Verify against the claude-api skill before trusting a cost figure — rates drift. Verified 2026-07-18. cache_read ~= 0.1x input; cache_write is the 5-minute-TTL rate (1.25x input) our agents use by default (1h TTL would be 2x). Sonnet 5 intro pricing ($2/$10) applies through 2026-08-31; the standard $3/$15 is listed here as the durable default — swap to intro if you want exact current-run cost.",
-  "_verified": "2026-07-18",
+  "_verified": "2026-08-03",
+  "claude-opus-5": { "in": 5.0, "out": 25.0, "cache_read": 0.5, "cache_write": 6.25 },
   "claude-opus-4-8": { "in": 5.0, "out": 25.0, "cache_read": 0.5, "cache_write": 6.25 },
   "claude-sonnet-5": { "in": 3.0, "out": 15.0, "cache_read": 0.3, "cache_write": 3.75 },
   "claude-haiku-4-5": { "in": 1.0, "out": 5.0, "cache_read": 0.1, "cache_write": 1.25 },

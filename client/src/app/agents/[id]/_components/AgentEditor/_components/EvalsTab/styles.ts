@@ -12,6 +12,11 @@ export const s = {
     gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
     gap: 12,
   } satisfies CSSProperties,
+  scoringNote: {
+    fontSize: 12.5,
+    color: "var(--text-muted)",
+    margin: "-12px 0 0",
+  } satisfies CSSProperties,
   actions: { display: "flex", alignItems: "center", gap: 10 } satisfies CSSProperties,
   dashboardLink: {
     marginLeft: "auto",
@@ -31,6 +36,7 @@ export const s = {
     flexDirection: "column",
     gap: 2,
   } satisfies CSSProperties,
+  rowNameRow: { display: "flex", alignItems: "center", gap: 8, minWidth: 0 } satisfies CSSProperties,
   rowName: {
     fontSize: 13.5,
     fontWeight: 600,
@@ -38,6 +44,7 @@ export const s = {
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   } satisfies CSSProperties,
+  rowTypeBadge: { flexShrink: 0, textTransform: "uppercase" } satisfies CSSProperties,
   rowSubtitle: { fontSize: 12, color: "var(--text-muted)" } satisfies CSSProperties,
   rowBadge: {
     display: "inline-flex",

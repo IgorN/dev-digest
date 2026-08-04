@@ -17,6 +17,8 @@ import type {
   OpenPrPayload,
   CommitFilesPayload,
   IssueMeta,
+  WorkflowRunMeta,
+  ArtifactMeta,
   GitClient,
   CloneOptions,
   UnifiedDiff,
@@ -125,6 +127,14 @@ export interface MockGitHubOptions {
   login?: string;
   /** Existing inline review comments returned by listReviewComments. */
   comments?: PrReviewComment[];
+  /** Actions workflow runs, NEWEST FIRST — the ci ingest's input (AC-34). */
+  workflowRuns?: WorkflowRunMeta[];
+  /** Artifacts per workflow-run id. A run absent from the map has none (AC-40). */
+  artifacts?: Record<string, ArtifactMeta[]>;
+  /** Raw zip bytes per artifact id — the ci module extracts them (AC-41). */
+  artifactBytes?: Record<string, Uint8Array>;
+  /** Pre-existing open PRs keyed by head branch, so re-export reuses (AC-30). */
+  openPrsByBranch?: Record<string, string>;
 }
 
 export class MockGitHubClient implements GitHubClient {
@@ -132,6 +142,8 @@ export class MockGitHubClient implements GitHubClient {
   public openedPrs: OpenPrPayload[] = [];
   public committed: CommitFilesPayload[] = [];
   public createdComments: CreateReviewCommentInput[] = [];
+  /** Every Actions call the ci module made, for zero-call assertions. */
+  public actionsCalls: string[] = [];
 
   constructor(private opts: MockGitHubOptions = {}) {}
 
@@ -217,7 +229,7 @@ export class MockGitHubClient implements GitHubClient {
 
   async openPullRequest(_repo: RepoRef, payload: OpenPrPayload): Promise<{ url: string }> {
     this.openedPrs.push(payload);
-    return { url: 'https://github.com/mock/mock/pull/1' };
+    return { url: `https://github.com/mock/mock/pull/${this.openedPrs.length}` };
   }
 
   async commitFiles(_repo: RepoRef, payload: CommitFilesPayload): Promise<{ branch: string }> {
@@ -226,8 +238,37 @@ export class MockGitHubClient implements GitHubClient {
   }
 
   async findOpenPr(_repo: RepoRef, branch: string): Promise<{ url: string } | null> {
-    const pr = this.openedPrs.find((p) => p.head === branch);
-    return pr ? { url: 'https://github.com/mock/mock/pull/1' } : null;
+    const seeded = this.opts.openPrsByBranch?.[branch];
+    if (seeded) return { url: seeded };
+    const i = this.openedPrs.findIndex((p) => p.head === branch);
+    return i === -1 ? null : { url: `https://github.com/mock/mock/pull/${i + 1}` };
+  }
+
+  // ---------- Actions (read-only) ----------
+
+  async listWorkflowRuns(
+    _repo: RepoRef,
+    workflowFile: string,
+    limit: number,
+  ): Promise<WorkflowRunMeta[]> {
+    this.actionsCalls.push(`listWorkflowRuns:${workflowFile}:${limit}`);
+    return (this.opts.workflowRuns ?? []).slice(0, limit);
+  }
+
+  async listRunArtifacts(_repo: RepoRef, runId: string): Promise<ArtifactMeta[]> {
+    this.actionsCalls.push(`listRunArtifacts:${runId}`);
+    return this.opts.artifacts?.[runId] ?? [];
+  }
+
+  async downloadArtifact(
+    _repo: RepoRef,
+    artifactId: string,
+    _maxBytes?: number,
+  ): Promise<Uint8Array> {
+    this.actionsCalls.push(`downloadArtifact:${artifactId}`);
+    const bytes = this.opts.artifactBytes?.[artifactId];
+    if (!bytes) throw new Error(`mock: no artifact bytes for ${artifactId}`);
+    return bytes;
   }
 
   async getIssue(_repo: RepoRef, n: number): Promise<IssueMeta> {

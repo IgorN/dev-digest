@@ -113,6 +113,20 @@
       "when": 1785330891088,
       "tag": "0015_next_wong",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1785664271108,
+      "tag": "0016_nifty_maverick",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1785747694252,
+      "tag": "0017_sleepy_hercules",
+      "breakpoints": true
     }
   ]
 }

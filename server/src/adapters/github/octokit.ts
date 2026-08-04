@@ -11,10 +11,25 @@ import type {
   OpenPrPayload,
   CommitFilesPayload,
   IssueMeta,
+  WorkflowRunMeta,
+  ArtifactMeta,
 } from '@devdigest/shared';
 import { withRetry, withTimeout } from '../../platform/resilience.js';
+import {
+  GitHubActionsScopeError,
+  GitHubArtifactTooLargeError,
+  GitHubWorkflowScopeError,
+  httpStatusOf,
+  isWorkflowScopeRefusal,
+} from './errors.js';
 
 const TIMEOUT = 30_000;
+
+/** Downloading an artifact is the one call whose body can be large. */
+const ARTIFACT_TIMEOUT = 60_000;
+
+/** Default ceiling on a downloaded artifact when the caller names none. */
+const DEFAULT_ARTIFACT_MAX_BYTES = 256 * 1024;
 
 function mapStatus(state: string, merged: boolean | undefined): PrStatus {
   if (merged) return 'merged';
@@ -261,6 +276,21 @@ export class OctokitGitHubClient implements GitHubClient {
     );
   }
 
+  /**
+   * ONE atomic commit onto `branch`: blob per file → tree → commit → ref.
+   *
+   * Repaired for its first production consumer (Export-to-CI); before that it
+   * had zero callers anywhere in the repository:
+   *  - it never created blobs, inlining every file's text into a single
+   *    `createTree` body. The export's first commit carries ~1.6 MB of runner
+   *    bundle — exactly the case blob-first exists to avoid;
+   *  - a bare `catch` around `getRef(heads/<branch>)` treated ANY failure
+   *    (a 403, a network blip) as "the branch does not exist", so an auth
+   *    failure silently became a first install off the base branch;
+   *  - `updateRef` forced. The parent IS the branch's own tip, so the update is
+   *    a fast-forward; `force: true` only makes a concurrent-write race
+   *    silently destructive.
+   */
   async commitFiles(
     repo: RepoRef,
     payload: CommitFilesPayload,
@@ -272,57 +302,91 @@ export class OctokitGitHubClient implements GitHubClient {
           const name = repo.name;
           const g = this.octokit.rest.git;
 
-          // Parent commit: the target branch if it already exists, else the base.
-          let parentSha: string;
-          let branchExists = false;
           try {
-            const ref = await g.getRef({ owner, repo: name, ref: `heads/${payload.branch}` });
-            parentSha = ref.data.object.sha;
-            branchExists = true;
-          } catch {
-            const baseRef = await g.getRef({ owner, repo: name, ref: `heads/${payload.base}` });
-            parentSha = baseRef.data.object.sha;
-          }
+            // Parent commit: the target branch if it already exists, else the base.
+            let parentSha: string;
+            let branchExists = false;
+            try {
+              const ref = await g.getRef({
+                owner,
+                repo: name,
+                ref: `heads/${payload.branch}`,
+              });
+              parentSha = ref.data.object.sha;
+              branchExists = true;
+            } catch (err) {
+              // ONLY a genuine 404 means "branch not there yet". Anything else
+              // (403, 5xx, network) is a real failure and must not be masked as
+              // a first install.
+              if (httpStatusOf(err) !== 404) throw err;
+              const baseRef = await g.getRef({
+                owner,
+                repo: name,
+                ref: `heads/${payload.base}`,
+              });
+              parentSha = baseRef.data.object.sha;
+            }
 
-          // New tree layered on the parent's tree (so unrelated files are kept).
-          const parentCommit = await g.getCommit({ owner, repo: name, commit_sha: parentSha });
-          const tree = await g.createTree({
-            owner,
-            repo: name,
-            base_tree: parentCommit.data.tree.sha,
-            tree: payload.files.map((f) => ({
-              path: f.path,
-              mode: '100644',
-              type: 'blob',
-              content: f.contents,
-            })),
-          });
+            // Blobs first — the tree then references them by sha, so no request
+            // body carries the bundle's bytes. Sequential on purpose: GitHub
+            // applies secondary rate limits to concurrent mutating requests.
+            const shas: string[] = [];
+            for (const file of payload.files) {
+              const blob = await g.createBlob({
+                owner,
+                repo: name,
+                content: Buffer.from(file.contents, 'utf8').toString('base64'),
+                encoding: 'base64',
+              });
+              shas.push(blob.data.sha);
+            }
 
-          const commit = await g.createCommit({
-            owner,
-            repo: name,
-            message: payload.message,
-            tree: tree.data.sha,
-            parents: [parentSha],
-          });
-
-          if (branchExists) {
-            await g.updateRef({
+            // New tree layered on the parent's tree (so unrelated files are kept).
+            const parentCommit = await g.getCommit({ owner, repo: name, commit_sha: parentSha });
+            const tree = await g.createTree({
               owner,
               repo: name,
-              ref: `heads/${payload.branch}`,
-              sha: commit.data.sha,
-              force: true,
+              base_tree: parentCommit.data.tree.sha,
+              tree: payload.files.map((f, i) => ({
+                path: f.path,
+                mode: '100644' as const,
+                type: 'blob' as const,
+                sha: shas[i]!,
+              })),
             });
-          } else {
-            await g.createRef({
+
+            const commit = await g.createCommit({
               owner,
               repo: name,
-              ref: `refs/heads/${payload.branch}`,
-              sha: commit.data.sha,
+              message: payload.message,
+              tree: tree.data.sha,
+              parents: [parentSha],
             });
+
+            if (branchExists) {
+              await g.updateRef({
+                owner,
+                repo: name,
+                ref: `heads/${payload.branch}`,
+                sha: commit.data.sha,
+                force: false,
+              });
+            } else {
+              await g.createRef({
+                owner,
+                repo: name,
+                ref: `refs/heads/${payload.branch}`,
+                sha: commit.data.sha,
+              });
+            }
+            return { branch: payload.branch };
+          } catch (err) {
+            // Writing anything under `.github/workflows/` needs the SEPARATE
+            // `workflow` scope; a token with only `repo` gets a 403 here that
+            // otherwise reads as an unexplained commit error.
+            if (isWorkflowScopeRefusal(err)) throw new GitHubWorkflowScopeError(err);
+            throw err;
           }
-          return { branch: payload.branch };
         })(),
         TIMEOUT,
       ),
@@ -368,5 +432,120 @@ export class OctokitGitHubClient implements GitHubClient {
       withTimeout(this.octokit.rest.users.getAuthenticated(), TIMEOUT),
     );
     return res.data.login;
+  }
+
+  // ---------- Actions (read-only; Export-to-CI ingest) ----------
+
+  /**
+   * A 403 from ANY Actions call means the token lacks `Actions: read` — a scope
+   * the export/commit path does not need. Surfacing that distinctly (AC-43) is
+   * the difference between "add Actions read to your token" and a dead end.
+   */
+  private mapActionsError(err: unknown): never {
+    if (httpStatusOf(err) === 403) throw new GitHubActionsScopeError(err);
+    throw err;
+  }
+
+  async listWorkflowRuns(
+    repo: RepoRef,
+    workflowFile: string,
+    limit: number,
+  ): Promise<WorkflowRunMeta[]> {
+    return withRetry(() =>
+      withTimeout(
+        (async () => {
+          try {
+            const res = await this.octokit.rest.actions.listWorkflowRuns({
+              owner: repo.owner,
+              repo: repo.name,
+              // The Actions API addresses a workflow by its FILE NAME.
+              workflow_id: workflowFile,
+              per_page: Math.min(Math.max(limit, 1), 100),
+            });
+            // GitHub returns newest first; the slice is the AC-44 bound.
+            return res.data.workflow_runs.slice(0, limit).map((run) => ({
+              id: String(run.id),
+              status: run.status ?? null,
+              conclusion: run.conclusion ?? null,
+              html_url: run.html_url,
+              created_at: run.created_at,
+              updated_at: run.updated_at,
+              run_started_at: run.run_started_at ?? null,
+              display_title: run.display_title ?? null,
+              pull_number: run.pull_requests?.[0]?.number ?? null,
+            }));
+          } catch (err) {
+            // A workflow file that has never run yet 404s — that is "no runs",
+            // not a failure, and must not abort the whole Refresh.
+            if (httpStatusOf(err) === 404) return [];
+            return this.mapActionsError(err);
+          }
+        })(),
+        TIMEOUT,
+      ),
+    );
+  }
+
+  async listRunArtifacts(repo: RepoRef, runId: string): Promise<ArtifactMeta[]> {
+    return withRetry(() =>
+      withTimeout(
+        (async () => {
+          try {
+            const res = await this.octokit.rest.actions.listWorkflowRunArtifacts({
+              owner: repo.owner,
+              repo: repo.name,
+              run_id: Number(runId),
+              per_page: 100,
+            });
+            return res.data.artifacts.map((a) => ({
+              id: String(a.id),
+              name: a.name,
+              size_in_bytes: a.size_in_bytes,
+              expired: Boolean(a.expired),
+            }));
+          } catch (err) {
+            if (httpStatusOf(err) === 404) return [];
+            return this.mapActionsError(err);
+          }
+        })(),
+        TIMEOUT,
+      ),
+    );
+  }
+
+  /**
+   * The artifact download is a redirect Octokit follows; the body is a ZIP
+   * (never the JSON) and it is UNTRUSTED input produced inside someone else's
+   * CI, so it is refused above `maxBytes` rather than buffered. Extraction is
+   * the ci module's `archive.ts`, not the adapter's.
+   */
+  async downloadArtifact(
+    repo: RepoRef,
+    artifactId: string,
+    maxBytes: number = DEFAULT_ARTIFACT_MAX_BYTES,
+  ): Promise<Uint8Array> {
+    return withRetry(() =>
+      withTimeout(
+        (async () => {
+          try {
+            const res = await this.octokit.rest.actions.downloadArtifact({
+              owner: repo.owner,
+              repo: repo.name,
+              artifact_id: Number(artifactId),
+              archive_format: 'zip',
+            });
+            const bytes = new Uint8Array(res.data as ArrayBuffer);
+            if (bytes.byteLength > maxBytes) {
+              throw new GitHubArtifactTooLargeError(bytes.byteLength, maxBytes);
+            }
+            return bytes;
+          } catch (err) {
+            if (err instanceof GitHubArtifactTooLargeError) throw err;
+            return this.mapActionsError(err);
+          }
+        })(),
+        ARTIFACT_TIMEOUT,
+      ),
+    );
   }
 }

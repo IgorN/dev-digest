@@ -10,6 +10,7 @@ import React from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import {
+  Badge,
   Card,
   SectionLabel,
   Button,
@@ -136,7 +137,12 @@ function AgentRow({
             <Icon.Cpu size={15} />
           </div>
           <div style={s.agentMain}>
-            <div style={s.agentName}>{agent.agent_name}</div>
+            <div style={s.agentNameRow}>
+              <span style={s.agentName}>{agent.agent_name}</span>
+              <Badge color="var(--text-secondary)" mono>
+                {agent.agent_model}
+              </Badge>
+            </div>
             <div style={s.agentMeta}>
               {populated && latest
                 ? t("workspaceDashboard.lastRun", {
@@ -154,26 +160,36 @@ function AgentRow({
                 <Sparkline data={trendSeries(agent)} />
               </div>
               <div style={s.metricCols}>
-                <Metric label={t("workspaceDashboard.recall")} value={agent.dashboard.current.recall} />
-                <Metric label={t("workspaceDashboard.precision")} value={agent.dashboard.current.precision} />
+                <Metric
+                  label={t("workspaceDashboard.recall")}
+                  value={agent.dashboard.current.recall}
+                  color="var(--accent)"
+                />
+                <Metric
+                  label={t("workspaceDashboard.precision")}
+                  value={agent.dashboard.current.precision}
+                  color="var(--ok)"
+                />
                 <Metric
                   label={t("workspaceDashboard.citation")}
                   value={agent.dashboard.current.citation_accuracy}
+                  color="var(--warn)"
                 />
               </div>
             </>
           ) : null}
+          <Icon.ChevronRight size={16} style={s.agentChevron} />
         </div>
       </Card>
     </Link>
   );
 }
 
-function Metric({ label, value }: { label: string; value: number }) {
+function Metric({ label, value, color }: { label: string; value: number; color: string }) {
   return (
     <div style={s.metricCol}>
       <div style={s.metricLabel}>{label}</div>
-      <div style={s.metricValue}>{formatPercent(value)}</div>
+      <div style={s.metricValue(color)}>{formatPercent(value)}</div>
     </div>
   );
 }

@@ -140,6 +140,37 @@ export interface CommitFilesPayload {
   files: CommitFile[];
 }
 
+/**
+ * One GitHub Actions workflow run (Export-to-CI ingest).
+ *
+ * `id` is a string because it is persisted as the ingest idempotency key and
+ * GitHub's run ids exceed the safe-integer comfort zone in aggregate tooling.
+ * `pull_requests` is frequently EMPTY on a `pull_request`-triggered run, so
+ * `pull_number` is best-effort — the ingest prefers the artifact's own number.
+ */
+export interface WorkflowRunMeta {
+  id: string;
+  /** `queued` | `in_progress` | `completed` (GitHub's vocabulary, passed through). */
+  status: string | null;
+  /** `success` | `failure` | `cancelled` | `skipped` | … — null while running. */
+  conclusion: string | null;
+  html_url: string;
+  created_at: string;
+  updated_at: string;
+  run_started_at: string | null;
+  /** The PR title snapshot GitHub renders for the run. */
+  display_title: string | null;
+  pull_number: number | null;
+}
+
+/** One artifact attached to a workflow run. */
+export interface ArtifactMeta {
+  id: string;
+  name: string;
+  size_in_bytes: number;
+  expired: boolean;
+}
+
 export interface GitHubClient {
   listPullRequests(repo: RepoRef): Promise<PrMeta[]>;
   getPullRequest(repo: RepoRef, n: number): Promise<PrDetail>;
@@ -154,9 +185,11 @@ export interface GitHubClient {
   ): Promise<PrReviewComment>;
   openPullRequest(repo: RepoRef, payload: OpenPrPayload): Promise<{ url: string }>;
   /**
-   * Commit `files` onto `branch` as ONE atomic commit (Git Data API: blobs →
-   * tree → commit → ref). Creates the branch from `base` if missing, else
-   * fast-forwards it. Idempotent: re-publishing just adds a new commit.
+   * Commit `files` onto `branch` as ONE atomic commit via the Git Data API:
+   * one blob per file (base64), then a single tree layered on the parent's tree
+   * (so unrelated files on the branch survive), then a commit, then the ref.
+   * Creates `branch` from `base` when it does not exist, else fast-forwards it.
+   * Re-publishing simply adds another commit.
    */
   commitFiles(repo: RepoRef, payload: CommitFilesPayload): Promise<{ branch: string }>;
   /** The open PR whose head is `branch`, if any (so re-publish reuses it). */
@@ -164,6 +197,27 @@ export interface GitHubClient {
   getIssue(repo: RepoRef, n: number): Promise<IssueMeta>;
   /** GET /user — for "posting as @user". */
   currentLogin(): Promise<string>;
+
+  // ---------- Actions (read-only; Export-to-CI ingest) ----------
+  /**
+   * Runs of one workflow, addressed by its FILE NAME (e.g.
+   * `devdigest-review.yml`), newest first, capped at `limit`.
+   * Requires the token's `Actions: read` scope — a 403 here is distinct from a
+   * repository-access failure and must be surfaced as such.
+   */
+  listWorkflowRuns(
+    repo: RepoRef,
+    workflowFile: string,
+    limit: number,
+  ): Promise<WorkflowRunMeta[]>;
+  /** Artifacts attached to one workflow run. */
+  listRunArtifacts(repo: RepoRef, runId: string): Promise<ArtifactMeta[]>;
+  /**
+   * Download one artifact as a ZIP archive. The body is UNTRUSTED input from
+   * someone else's CI: implementations must refuse anything over `maxBytes`
+   * rather than buffering it. Extraction is the caller's concern.
+   */
+  downloadArtifact(repo: RepoRef, artifactId: string, maxBytes?: number): Promise<Uint8Array>;
 }
 
 // ---------- Git (simple-git, heavy) ----------

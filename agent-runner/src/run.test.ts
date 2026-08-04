@@ -267,11 +267,15 @@ describe('runCi (T8 agent-runner orchestrator)', () => {
     );
 
     expect(result.exitCode).toBe(1);
-    expect(calls).toHaveLength(1);
-    expect(calls[0]!.url).toContain('/repos/acme/widgets/pulls/42/reviews');
-    expect(calls[0]!.method).toBe('POST');
-    const body = JSON.parse(calls[0]!.body!);
+    // A lookup for our own superseded reviews precedes the post; with none to
+    // find, nothing is dismissed.
+    const posts = calls.filter((c) => c.method === 'POST');
+    expect(posts).toHaveLength(1);
+    expect(posts[0]!.url).toContain('/repos/acme/widgets/pulls/42/reviews');
+    const body = JSON.parse(posts[0]!.body!);
     expect(body.event).toBe('REQUEST_CHANGES');
+    expect(body.body).toContain('<!-- devdigest:review -->');
+    expect(calls.some((c) => c.method === 'PUT')).toBe(false);
   });
 
   it('AC-24: post_as="pr_comment" posts an issue comment instead of a review', async () => {
@@ -281,9 +285,10 @@ describe('runCi (T8 agent-runner orchestrator)', () => {
       baseDeps({ llm: stub.llm, fetchDiff: async () => FIXTURE_DIFF_RAW, fetchImpl, postAs: 'pr_comment' }),
     );
 
-    expect(calls).toHaveLength(1);
-    expect(calls[0]!.url).toContain('/repos/acme/widgets/issues/42/comments');
-    expect(calls[0]!.method).toBe('POST');
+    const posts = calls.filter((c) => c.method === 'POST');
+    expect(posts).toHaveLength(1);
+    expect(posts[0]!.url).toContain('/repos/acme/widgets/issues/42/comments');
+    expect(JSON.parse(posts[0]!.body!).body).toContain('<!-- devdigest:review -->');
   });
 
   it('AC-24 + AC-25: post_as="none" posts nothing but still exits 0 on a clean (non-triggering) review', async () => {

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { Verdict, Finding } from './findings.js';
-import { EvalRun, EvalCase, EvalOwnerKind, Conformance } from './knowledge.js';
+import { EvalRun, EvalCase, EvalOwnerKind, Conformance, Provider, CiFailOn } from './knowledge.js';
 
 /**
  * A4 — Eval / CI / Compose / Conformance API contracts (L06).
@@ -132,6 +132,7 @@ export type EvalCaseFromFindingInput = z.infer<typeof EvalCaseFromFindingInput>;
 export const EvalAgentSummary = z.object({
   agent_id: z.string(),
   agent_name: z.string(),
+  agent_model: z.string(),
   dashboard: EvalDashboard,
 });
 export type EvalAgentSummary = z.infer<typeof EvalAgentSummary>;
@@ -200,8 +201,43 @@ export const CiFile = z.object({
   path: z.string(),
   contents: z.string(),
   editable: z.boolean().default(true),
+  /**
+   * Set for entries whose real payload is binary/huge (the runner bundle): the
+   * client renders this marker instead, and `contents` is the empty string —
+   * shipping 1.6 MB of ncc output through the preview response would be absurd.
+   */
+  placeholder: z.string().nullish(),
 });
 export type CiFile = z.infer<typeof CiFile>;
+
+/**
+ * AgentManifest — the agent contract shared by the studio and the CI runner.
+ *
+ * The studio (`CiService.agentYaml`) WRITES this shape to
+ * `.devdigest/agents/<slug>.yaml`; the agent-runner READS it. Keeping one Zod
+ * schema for both ends guarantees the formats never drift. `skills` are slugs
+ * resolved to `.devdigest/skills/<slug>.md`.
+ */
+export const AgentManifest = z.object({
+  name: z.string().min(1),
+  provider: Provider.default('openrouter'),
+  model: z.string().min(1),
+  system_prompt: z.string(),
+  // Tolerate both a missing key and an explicit `null` (YAML `skills:` with no
+  // value parses to null, which `.default([])` does NOT catch) — normalize both
+  // to an empty array so manifests without skills validate cleanly.
+  skills: z
+    .array(z.string())
+    .nullish()
+    .transform((v) => v ?? []),
+  strategy: z.enum(['auto', 'single-pass', 'map-reduce']).default('auto'),
+  // CI gate policy (see CiFailOn) — when the posted review should BLOCK
+  // (REQUEST_CHANGES + fail the check) vs just comment. Default: block on critical.
+  ci_fail_on: CiFailOn.default('critical'),
+});
+export type AgentManifest = z.infer<typeof AgentManifest>;
+/** Caller-facing input type — `.default()` fields stay optional. */
+export type AgentManifestInput = z.input<typeof AgentManifest>;
 
 /** Request body for `POST /agents/:id/export-ci`. */
 export const CiExportInput = z.object({
@@ -212,18 +248,63 @@ export const CiExportInput = z.object({
   post_as: z.enum(['github_review', 'pr_comment', 'none']).default('github_review'),
   triggers: z.array(z.string()).default(['opened', 'synchronize', 'reopened']),
   base: z.string().default('main'),
+  /**
+   * The user's hand-edited workflow contents from the wizard's Preview step.
+   * Absent means "generate it" — the server never silently keeps a stale copy.
+   */
+  workflow: z.string().optional(),
 });
 export type CiExportInput = z.infer<typeof CiExportInput>;
 /** Caller-facing input type — `.default()` fields stay optional (web hooks). */
 export type CiExportInputBody = z.input<typeof CiExportInput>;
 
+// Declared before `CiInstallation`, which derives a status from its runs — a
+// `const` referenced before its initializer would throw at module load.
+//
+// `blocked` is NOT a failure: the review ran, found something at or above the
+// exported `ci_fail_on` severity, and deliberately exited non-zero to stop the
+// merge. It is kept distinct from `failed` (the runner or the artifact broke)
+// because collapsing the two would report the feature working as the feature
+// breaking — and distinct from `succeeded` because the GitHub check IS red.
+export const CiRunStatus = z.enum([
+  'succeeded',
+  'blocked',
+  'failed',
+  'no_findings',
+  'running',
+]);
+export type CiRunStatus = z.infer<typeof CiRunStatus>;
+
 /** A persisted CI installation (mirrors `ci_installations`). */
 export const CiInstallation = z.object({
   id: z.string(),
   agent_id: z.string(),
+  workspace_id: z.string(),
   repo: z.string(),
   target_type: CiTarget,
   installed_at: z.string(),
+  /** How the runner posts its result; travels to CI as a workflow env var. */
+  post_as: z.enum(['github_review', 'pr_comment', 'none']),
+  triggers: z.array(z.string()),
+  base: z.string(),
+  /**
+   * Pinned at first install and never re-derived from the agent's name: the
+   * runner hard-fails on more than one manifest and the commit path cannot
+   * delete, so a rename would otherwise brick the installation.
+   */
+  manifest_path: z.string(),
+  workflow_path: z.string(),
+  /** Monotonic export counter, incremented on every re-export. */
+  workflow_version: z.number().int(),
+  pr_url: z.string().nullable(),
+  last_ingest_at: z.string().nullable(),
+  /** The gate policy as it was written into the committed manifest. */
+  exported_ci_fail_on: CiFailOn.nullable(),
+  /** Derived, not stored: null ⇒ no run has arrived yet. */
+  status: CiRunStatus.nullable(),
+  last_activity_at: z.string().nullable(),
+  /** True when the agent's current `ci_fail_on` differs from the exported one. */
+  policy_drift: z.boolean(),
 });
 export type CiInstallation = z.infer<typeof CiInstallation>;
 
@@ -232,20 +313,29 @@ export const CiExport = z.object({
   installation: CiInstallation,
   files: z.array(CiFile),
   pr_url: z.string().nullable(),
+  repo: z.string(),
+  file_count: z.number().int(),
 });
 export type CiExport = z.infer<typeof CiExport>;
-
-export const CiRunStatus = z.enum(['succeeded', 'failed', 'no_findings', 'running']);
-export type CiRunStatus = z.infer<typeof CiRunStatus>;
 
 /** A CI run row (mirrors `ci_runs`) — ingested from GitHub Actions artifacts. */
 export const CiRun = z.object({
   id: z.string(),
   ci_installation_id: z.string().nullable(),
+  workspace_id: z.string(),
+  /** The `agent_runs` row this ingest created (`source='ci'`), when one exists. */
+  agent_run_id: z.string().nullable(),
+  /** GitHub Actions run id — the idempotency key for re-ingesting the same run. */
+  github_run_id: z.string(),
+  repo: z.string(),
   pr_number: z.number().int().nullable(),
+  pr_title: z.string().nullish(),
   ran_at: z.string().nullable(),
   status: z.string().nullable(),
   findings_count: z.number().int().nullable(),
+  critical: z.number().int().nullish(),
+  warning: z.number().int().nullish(),
+  suggestion: z.number().int().nullish(),
   cost_usd: z.number().nullable(),
   github_url: z.string().nullable(),
   source: z.string().nullable(),
@@ -253,6 +343,28 @@ export const CiRun = z.object({
   duration_s: z.number().nullish(),
 });
 export type CiRun = z.infer<typeof CiRun>;
+
+/** `GET /ci-runs` — the rows plus everything the filter chips need, in one trip. */
+export const CiRunsResponse = z.object({
+  runs: z.array(CiRun),
+  agents: z.array(z.object({ id: z.string(), name: z.string() })),
+  repos: z.array(z.string()),
+});
+export type CiRunsResponse = z.infer<typeof CiRunsResponse>;
+
+/**
+ * Outcome of a Refresh. Partial success is normal — one unreadable artifact
+ * must not mask the runs that ingested fine, so failures are itemised rather
+ * than collapsed into an error.
+ */
+export const CiIngestResult = z.object({
+  examined: z.number().int(),
+  ingested: z.number().int(),
+  skipped: z.number().int(),
+  already_known: z.number().int(),
+  failures: z.array(z.object({ github_run_id: z.string(), reason: z.string() })),
+});
+export type CiIngestResult = z.infer<typeof CiIngestResult>;
 
 /**
  * The artifact shape uploaded by the CI action (`devdigest-result.json`).
@@ -279,7 +391,7 @@ export type CiResultArtifact = z.infer<typeof CiResultArtifact>;
 export const ConformanceInput = z.object({
   /** Spec path/id to compare against; if omitted, the first available spec. */
   spec: z.string().nullish(),
-  provider: z.enum(['openai', 'anthropic']).nullish(),
+  provider: z.enum(['openai', 'anthropic', 'openrouter']).nullish(),
   model: z.string().nullish(),
 });
 export type ConformanceInput = z.infer<typeof ConformanceInput>;

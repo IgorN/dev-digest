@@ -72,6 +72,8 @@
     "metricsSubtitle": "Recall / Precision / Citation for this agent's eval cases",
     "casesHeading": "Eval cases",
     "casesPassing": "{passed} / {total} passing",
+    "casesTotal": "{total} cases",
+    "scoringNote": "Scoring is mechanical — a finding counts when file matches and line ranges overlap. No model call in the scorer.",
     "newCase": "New case",
     "loadingCases": "Loading cases…",
     "emptyCases": "No eval cases yet. Create one to assert this agent's expected findings on a sample diff.",
@@ -81,6 +83,10 @@
     "recallSuffix": " · recall {recall}%",
     "caseSubtitle": "expected {expected} finding(s), got {got}",
     "caseFailureBreakdown": "{missed} missed · {falsePositives} false-positive · {extra} extra",
+    "expectationType": {
+      "must_find": "Must find",
+      "must_not_flag": "Must not flag"
+    },
     "run": "Run",
     "running": "Running…",
     "edit": "Edit",

@@ -1,5 +1,5 @@
 import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
-import type { LLMProvider, GitHubReviewPayload, CiResultArtifact } from '@devdigest/shared';
+import type { LLMProvider, GitHubReviewPayload, CiResultArtifact, Finding } from '@devdigest/shared';
 import { reviewPullRequest, toReviewPayload, gateTriggered, countBlockers } from '@devdigest/reviewer-core';
 import { loadManifest } from './manifest.js';
 import { loadSkillBodies } from './skills.js';
@@ -66,6 +66,14 @@ export interface RunCiSuccess {
   posted: { kind: PostAs; payload?: GitHubReviewPayload };
   blockers: number;
   gateTriggered: boolean;
+  /**
+   * The GROUNDED findings, surfaced so the CLI layer can render Actions
+   * annotations and a job summary. The artifact carries only counts, which is
+   * enough to persist but not enough to tell a developer what was wrong.
+   */
+  findings: Finding[];
+  /** The manifest's gate policy — reported alongside the verdict so the run page explains WHY it failed. */
+  failOn: string;
   error?: undefined;
 }
 
@@ -75,6 +83,8 @@ export interface RunCiFailure {
   posted: null;
   blockers?: undefined;
   gateTriggered?: undefined;
+  findings?: undefined;
+  failOn?: undefined;
   error: string;
 }
 
@@ -163,6 +173,8 @@ export async function runCi(deps: RunCiDeps): Promise<RunCiResult> {
       posted: { kind: deps.postAs, payload },
       blockers,
       gateTriggered: triggered,
+      findings: outcome.review.findings,
+      failOn: manifest.ci_fail_on,
     };
   } catch (err) {
     // Hard-fail (Q5): non-zero exit, nothing posted, no artifact, no synthetic

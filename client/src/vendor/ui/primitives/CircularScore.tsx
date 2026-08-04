@@ -12,6 +12,13 @@ export function CircularScore({
   const r = (size - stroke) / 2;
   const circ = 2 * Math.PI * r;
   const c = score >= 75 ? "var(--ok)" : score >= 50 ? "var(--warn)" : "var(--crit)";
+  // A score of 0 is a REAL verdict ("critical problems", per the Review
+  // contract), but drawing it literally offsets the arc by the full
+  // circumference — nothing renders, and an emphatic 0 reads as "didn't run".
+  // Floor the drawn arc at a short visible stub so a red 0 looks judged, not
+  // empty. Only affects the drawing; the number shown is untouched.
+  const MIN_ARC = 0.05;
+  const arc = Math.min(Math.max(score / 100, MIN_ARC), 1);
   return (
     <div style={{ position: "relative", width: size, height: size, flexShrink: 0 }}>
       <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
@@ -24,7 +31,7 @@ export function CircularScore({
           stroke={c}
           strokeWidth={stroke}
           strokeDasharray={circ}
-          strokeDashoffset={circ * (1 - score / 100)}
+          strokeDashoffset={circ * (1 - arc)}
           strokeLinecap="round"
           style={{ transition: "stroke-dashoffset .6s ease" }}
         />

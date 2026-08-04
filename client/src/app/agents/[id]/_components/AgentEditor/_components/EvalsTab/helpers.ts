@@ -138,6 +138,32 @@ export function casePassState(
   return evalCase.latest_run ? evalCase.latest_run.pass : null;
 }
 
+/** Same ok/warn/crit tiering as the per-agent dashboard's own `passRateColor`
+   (`EvalAgentDrillIn/helpers.ts`) — duplicated here per this codebase's
+   route-private colocation convention. */
+export function passRateColor(rate: number): string {
+  if (rate >= 0.85) return "var(--ok)";
+  if (rate >= 0.65) return "var(--warn)";
+  return "var(--crit)";
+}
+
+/** The expectation type ("must_find" | "must_not_flag") to show as a badge
+   on a case row — only when EVERY item in `expected_output` agrees on the
+   same type (a case is usually homogeneous); a mixed or empty set renders no
+   badge rather than guessing. */
+export function caseExpectationType(evalCase: EvalCase): "must_find" | "must_not_flag" | null {
+  if (!Array.isArray(evalCase.expected_output) || evalCase.expected_output.length === 0) return null;
+  let type: "must_find" | "must_not_flag" | null = null;
+  for (const raw of evalCase.expected_output) {
+    if (!raw || typeof raw !== "object") return null;
+    const t = (raw as Record<string, unknown>).type;
+    if (t !== "must_find" && t !== "must_not_flag") return null;
+    if (type === null) type = t;
+    else if (type !== t) return null;
+  }
+  return type;
+}
+
 /** Converts a fresh (this-session) batch-run result into the `EvalRunRecord`
    shape `EvalCaseEditor`'s `latestRun` prop expects, so opening the editor
    right after an in-tab run shows its correct status strip immediately.

@@ -33,6 +33,26 @@ If given a plan path, `Read` it in full before doing anything else — don't act
 
    If your spec names skills explicitly, that list wins over these defaults.
 
+## Never rewrite the working tree
+
+You run **in parallel with other implementers on the same branch, in the same
+checkout**, alongside uncommitted work from the orchestrator. Any command that
+discards or relocates tracked changes wipes *their* work, not just yours, and
+you cannot see what you destroyed. These are forbidden without exception —
+there is no situation in your scope that requires them:
+
+- `git stash` (any form, including `-u`/`push`/`pop`)
+- `git reset` (any mode)
+- `git checkout -- <path>` / `git restore <path>`
+- `git clean`
+- `git commit`, `git rebase`, `git merge`, branch switching
+
+`git status` / `git diff` / `git log` are fine — read-only inspection is
+expected. If your task seems to need a destructive git operation, that is a
+signal the task is wrong: stop and report it. (A real run: one implementer
+stashed the entire tree mid-task, briefly removing two other agents' and the
+orchestrator's uncommitted work.)
+
 ## Staying in your lane
 
 Touch only the files/dirs your scope names. If the task genuinely requires touching something outside that scope, stop and report it instead of reaching across — this is what keeps parallel backend/frontend runs from colliding. The vendored contracts (`server/src/vendor/shared` and `client/src/vendor/shared`) are a special case: they are two hand-synced copies of one cross-package contract, and editing only your side guarantees drift. **Never edit either copy yourself** — report the exact change needed (file, field, shape) so the orchestrator applies it to both copies in lock-step, outside the parallel run.

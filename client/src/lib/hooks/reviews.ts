@@ -114,23 +114,31 @@ export function useCreatePrComment(prId: string | null | undefined) {
   });
 }
 
-// ---- Run a review (all enabled agents or a specific agent) ----
+// ---- Run a review (a chosen set of agents, all enabled agents, or one agent) ----
+// `agentIds` is the multi-agent picker's channel; `agentId`/`all` are the
+// pre-existing single-agent and run-all paths and stay for compatibility.
+// Server-side precedence: agentIds (non-empty) → agentId → all.
 export interface RunReviewInput {
   prId: string;
   agentId?: string;
   all?: boolean;
+  agentIds?: string[];
 }
 
 export function useRunReview() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ prId, agentId, all }: RunReviewInput) =>
+    mutationFn: ({ prId, agentId, all, agentIds }: RunReviewInput) =>
       api.post<ReviewRunResponse>(`/pulls/${prId}/review`, {
+        ...(agentIds && agentIds.length ? { agentIds } : {}),
         ...(agentId ? { agentId } : {}),
         ...(all ? { all } : {}),
       }),
     onSuccess: (_d, { prId }) => {
       qc.invalidateQueries({ queryKey: ["reviews", prId] });
+      // A fresh launch becomes the latest multi-run for both the repo scope
+      // (nav entry point) and the PR scope (PR-page re-entry control).
+      qc.invalidateQueries({ queryKey: ["multi-run-latest"] });
     },
   });
 }
