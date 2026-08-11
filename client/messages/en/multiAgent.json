@@ -1,0 +1,86 @@
+{
+  "picker": {
+    "heading": "Pick agents to run",
+    "clear": "Clear",
+    "selectAll": "Select all",
+    "run": "Run multi-agent review ({count})",
+    "runOne": "Run {agent}",
+    "runNone": "Select an agent",
+    "configureAgents": "Configure agents…",
+    "noEstimate": "—",
+    "empty": "No agents enabled — enable one to run a review."
+  },
+  "timeline": {
+    "openMultiRun": "Open multi-agent result",
+    "multiRunLabel": "Multi-agent review"
+  },
+  "configure": {
+    "breadcrumbRoot": "Multi-Agent Review",
+    "breadcrumb": "Configure run",
+    "title": "Run a Multi-Agent Review",
+    "subtitle": "Pick a pull request and choose which agents to fan out — they run in parallel and you compare their findings side by side.",
+    "step1": "Pull request",
+    "selectPr": "Select a pull request…",
+    "prItem": "#{number} · {title}",
+    "step2": "Agents to run",
+    "selectAll": "Select all",
+    "clearAll": "Clear all",
+    "emptyTitle": "Pick a pull request first",
+    "emptyBody": "Choose which PR to review above, then select the agents to run on it.",
+    "run": "Run multi-agent review ({count})",
+    "runOne": "Run 1 agent",
+    "runNone": "Select agents",
+    "aggregate": "≈ {duration} · {cost} · parallel fan-out",
+    "noEstimate": "—",
+    "noPrs": "No pull requests in this repository yet."
+  },
+  "result": {
+    "title": "Multi-Agent Review",
+    "crumbRoot": "Multi-Agent Review",
+    "configureRun": "Configure run",
+    "configureRunTooltip": "Change PR or agents",
+    "selectedAgents": "{count} selected agents · parallel",
+    "viewColumns": "Columns",
+    "viewTabs": "Tabs",
+    "subRow": "{count} agents · parallel fan-out · {duration} · {cost}",
+    "viewTrace": "View trace",
+    "findingsCount": "{count, plural, one {# finding} other {# findings}}",
+    "noFindings": "No findings.",
+    "noSummary": "No summary.",
+    "suggestedFix": "Suggested fix",
+    "confidence": "{pct}% conf",
+    "status": {
+      "running": "running",
+      "done": "completed",
+      "failed": "failed",
+      "cancelled": "cancelled"
+    },
+    "actions": {
+      "accept": "Accept",
+      "dismiss": "Dismiss",
+      "learn": "Learn",
+      "evalCase": "Turn into eval case"
+    },
+    "learnTooltip": "Arrives with the Memory feature",
+    "empty": {
+      "title": "No agents selected",
+      "body": "Pick at least one agent to fan out this review. Configure the run to choose agents.",
+      "cta": "Configure run"
+    },
+    "notFound": {
+      "title": "Multi-agent run not found",
+      "body": "This run does not exist, or belongs to another workspace.",
+      "cta": "Configure run"
+    }
+  },
+  "disagree": {
+    "heading": "Where agents disagree",
+    "showOnlyConflicts": "Show only conflicts",
+    "didNotFlag": "did not flag",
+    "noResult": "no result",
+    "emptyTitle": "Nothing to compare yet",
+    "emptyBody": "No agent flagged a location in this run, so there is nothing to line up side by side.",
+    "emptyConflictsTitle": "The agents agree",
+    "emptyConflictsBody": "Every flagged location got the same verdict from every agent that produced a result."
+  }
+}

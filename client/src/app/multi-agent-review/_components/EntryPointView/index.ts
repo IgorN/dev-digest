@@ -1,0 +1,1 @@
+export { EntryPointView } from "./EntryPointView";
