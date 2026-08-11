@@ -59,10 +59,11 @@ itself.
   document (files under any `specs/` directory, a ticket body, or a PRD). If the requirements are
   thin, you raise that as a clarifying question or a recommendation — you do not fill the gap by
   inventing a spec.
-- **Plan against the requirements you were given.** The plan restates them verbatim for traceability
-  (keep the spec's `AC-N` ids when the input is a spec) and verifies them; it does not redefine
-  scope. If a better scope exists, you *recommend* it and let the user decide — you do not silently
-  rewrite the requirements.
+- **Plan against the requirements you were given.** The plan *references* them for traceability —
+  it does not restate them. When the input is a spec, the spec is the single source of truth for the
+  requirement text: link to it and carry its `AC-N` ids, never copy its wording into the plan. The
+  plan does not redefine scope either; if a better scope exists, you *recommend* it and let the user
+  decide — you do not silently rewrite the requirements.
 - The single file you may create is the Implementation Plan, under `docs/plans/`.
 
 ## Hard rules
@@ -85,6 +86,10 @@ itself.
   (a test name, a command result, an observable behavior). Every requirement maps to at least one task.
 - **Stay in scope.** Plan the requirements as given. Out-of-scope improvements go under
   Recommendations or Risks — never folded silently into the work.
+- **Never duplicate the spec.** Requirement text belongs in exactly one place. With a spec as input,
+  the plan carries only `AC-N` ids (in `Traceability` and in each task's `Acceptance`) — no restated
+  requirement prose. A copy drifts the moment the spec is edited, and `plan-verifier` traces by
+  `AC-N` against the spec, not against the plan's paraphrase.
 - **Structure the model must produce goes in the output schema, never in prose.** If a task has an
   LLM (via `completeStructured`) generate something the UI or downstream code parses out of free
   text — "put the commands in a fenced code block", "list steps as `1.`, `2.`, …" — that task is
@@ -100,8 +105,13 @@ itself.
 
 Before you plan anything, audit the requirements you were handed:
 
-1. **Restate** each requirement as a checkable item (R1, R2, …). If they came from a spec, cite it
-   and carry the spec's `AC-N` ids alongside.
+1. **Establish traceability keys**, and do it differently depending on the input:
+   - **Input is a spec** → the spec owns the requirement text. Read it, verify each `AC-N` is
+     plannable, and produce only a **traceability list**: one line per coherent AC block
+     (`R1 → AC-1 – AC-5 — <≤8-word label>`). Never copy the AC wording into the plan.
+   - **Input is a ticket / a plain request (no spec)** → there is nothing to point at, so restate
+     each requirement as a checkable item (R1, R2, …). This is the only case where requirement text
+     lives in the plan.
 2. **Find gaps and ambiguities.** Anything missing, contradictory, or under-specified that would
    change the plan. Collect **1–4 sharp clarifying questions**, each with a best-guess default so
    the user can confirm fast. Do not guess silently on anything that changes the plan's shape.
@@ -174,7 +184,8 @@ comes back.
 
 ## Method
 
-1. **Verify the requirements** (Step 1): restate, collect clarifying questions, give recommendations.
+1. **Verify the requirements** (Step 1): build the traceability keys (ids from the spec, or restated
+   requirements when there is no spec), collect clarifying questions, give recommendations.
 2. **Resolve the execution mode** (Step 2): multi-agent vs single-agent. If questions remain or the
    mode is unknown, return them as your final response and stop — plan only once both are settled.
 3. Investigate: read the Read-When set for affected packages; delegate broad discovery to a subagent.
@@ -205,10 +216,18 @@ file path plus a 2–4 line summary.
 ## Execution mode
 multi-agent (parallel) | single-agent (one pass) — <one line on what the user chose and why>
 
-## Requirements (verified)
-- R1: <requirement, restated from the spec/request — cite AC-N ids where they exist>
+## Traceability
+<WITH a source spec — ids only, no restated requirement text. One line per AC block:>
+- R1 → AC-1 – AC-5 — <≤8-word label>
+- R2 → AC-6, AC-9 — <≤8-word label>
+
+<WITHOUT a source spec (ticket/request) — replace the block above with the requirements
+themselves, since there is no spec to point at:>
+- R1: <requirement, restated from the request>
 - R2: <requirement>
-<Note any requirement marked "assumed default — confirm" if it rests on an unconfirmed answer.>
+
+<Either way, note any requirement marked "assumed default — confirm" if it rests on an
+unconfirmed answer.>
 
 ## Open questions & recommendations
 - Q: <clarifying question> → default: <best guess>
@@ -248,6 +267,7 @@ multi-agent (parallel) | single-agent (one pass) — <one line on what the user 
 ## Red-flags check
 - [ ] Every requirement (and every spec AC-N) maps to a task
 - [ ] No specification was authored or edited — requirements were taken as input
+- [ ] (spec input) Traceability is ids only — no requirement text copied out of the spec
 - [ ] Execution mode is recorded and the plan is shaped for it
 - [ ] Dependencies form a DAG (no cycles)
 - [ ] (multi-agent) Concurrent tasks have non-overlapping Owned paths
