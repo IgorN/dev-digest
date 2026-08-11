@@ -70,12 +70,12 @@ export function SymbolRow({
           {(impact.endpoints_affected.length > 0 || impact.crons_affected.length > 0) && (
             <div style={s.badgeRow}>
               {impact.endpoints_affected.map((e) => (
-                <Badge key={e} icon="Globe" mono>
+                <Badge key={e} icon="Globe" color="var(--sugg)" bg="var(--sugg-bg)" mono>
                   {e}
                 </Badge>
               ))}
               {impact.crons_affected.map((c) => (
-                <Badge key={c} icon="Clock" mono>
+                <Badge key={c} icon="Clock" color="var(--warn)" bg="var(--warn-bg)" mono>
                   {c}
                 </Badge>
               ))}

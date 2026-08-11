@@ -3,7 +3,8 @@
     "intent": "Intent",
     "blast": "Blast radius",
     "risks": "Risks",
-    "history": "PR history"
+    "history": "PR history",
+    "whyRisk": "Risk brief"
   },
   "noRisks": "No notable risks flagged.",
   "noHistory": "No prior PRs overlap these files.",
@@ -21,5 +22,19 @@
     "blame": "blame",
     "noHistory": "No history available for this line.",
     "noCommits": "No commits found for this line."
-  }
+  },
+  "field": {
+    "what": "What",
+    "why": "Why"
+  },
+  "riskLevel": {
+    "high": "High risk",
+    "medium": "Medium risk",
+    "low": "Low risk"
+  },
+  "reviewFocus": {
+    "title": "Review focus — read these first",
+    "empty": "No specific files flagged for review."
+  },
+  "degradedBadge": "Degraded"
 }

@@ -89,6 +89,7 @@ gate. Offer to fix them instead.
 | `server/src/db/schema/**`, `**/migrations/**` | Persistence | `postgresql-table-design`, `drizzle-orm-patterns` |
 | `server/**` (other) | Backend | `onion-architecture`, `fastify-best-practices`, `typescript-expert`, `security` |
 | `reviewer-core/**` | Domain core | `onion-architecture` (pure-core rules), `typescript-expert`, `zod` |
+| `mcp-server/**` | MCP server | `typescript-expert`, `zod`, `security` |
 | `e2e/**` | E2E | general bug pass only |
 | any `*.{ts,tsx}` | always-on | `security`, general bug/correctness pass |
 

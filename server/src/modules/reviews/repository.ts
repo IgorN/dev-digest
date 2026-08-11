@@ -1,6 +1,13 @@
 import type { Db } from '../../db/client.js';
 import * as t from '../../db/schema.js';
-import type { BlastRadius, Finding, Intent, RunSummary, RunTrace } from '@devdigest/shared';
+import type {
+  BlastRadius,
+  Finding,
+  Intent,
+  RunSummary,
+  RunTrace,
+  WhyRiskBrief,
+} from '@devdigest/shared';
 
 /**
  * A2 — review data-access. The ONLY layer touching the DB for the review
@@ -135,7 +142,7 @@ export class ReviewRepository {
     return pullRepo.getIntent(this.db, prId);
   }
 
-  // ---- brief (blast radius) ------------------------------------------------
+  // ---- brief (blast radius + why/risk) -------------------------------------
 
   upsertBriefBlast(prId: string, blast: BlastRadius): Promise<void> {
     return pullRepo.upsertBriefBlast(this.db, prId, blast);
@@ -143,6 +150,14 @@ export class ReviewRepository {
 
   getBriefBlast(prId: string): Promise<BlastRadius | undefined> {
     return pullRepo.getBriefBlast(this.db, prId);
+  }
+
+  upsertBriefWhyRisk(prId: string, brief: WhyRiskBrief): Promise<void> {
+    return pullRepo.upsertBriefWhyRisk(this.db, prId, brief);
+  }
+
+  getBriefWhyRisk(prId: string): Promise<WhyRiskBrief | undefined> {
+    return pullRepo.getBriefWhyRisk(this.db, prId);
   }
 
   // ---- observability: agent_runs + run_traces ----------------------------

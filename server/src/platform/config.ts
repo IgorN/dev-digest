@@ -36,7 +36,15 @@ const EnvSchema = z.object({
     (v) => (v === '' ? undefined : v),
     z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).optional(),
   ),
+  // Project Context (context-folder feature): comma-separated directory names
+  // treated as context-document roots. Empty/unset → the default set.
+  CONTEXT_ROOTS: z.preprocess((v) => (v === '' ? undefined : v), z.string().optional()),
+  // Per-document UTF-8 byte cap for previewed/injected context markdown (AC-18).
+  CONTEXT_DOC_MAX_BYTES: z.coerce.number().int().positive().default(65536),
 });
+
+/** Default context-document root directory names (AC-3). */
+const DEFAULT_CONTEXT_ROOTS = ['specs', 'docs', 'insights'] as const;
 
 export type AppConfig = {
   databaseUrl: string;
@@ -59,6 +67,13 @@ export type AppConfig = {
    * EXACTLY like the ripgrep-only baseline.
    */
   repoIntelEnabled: boolean;
+  /**
+   * Directory names whose `.md` files count as Project Context documents
+   * (matched as a path segment at any depth). Default: specs, docs, insights.
+   */
+  contextRoots: string[];
+  /** Per-document UTF-8 byte cap for context markdown (preview + injection). */
+  contextDocMaxBytes: number;
 };
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
@@ -66,6 +81,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   const cloneDirRaw =
     parsed.DEVDIGEST_CLONE_DIR ?? join(homedir(), '.devdigest', 'workspace');
   const cloneDir = isAbsolute(cloneDirRaw) ? cloneDirRaw : resolve(process.cwd(), cloneDirRaw);
+  const contextRoots = (parsed.CONTEXT_ROOTS ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
   return {
     databaseUrl: parsed.DATABASE_URL,
     apiPort: parsed.API_PORT,
@@ -77,5 +96,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     webOrigin: `http://localhost:${parsed.WEB_PORT}`,
     embeddingsEnabled: parsed.EMBEDDINGS_ENABLED === 'true',
     repoIntelEnabled: parsed.REPO_INTEL_ENABLED !== 'false',
+    contextRoots: contextRoots.length > 0 ? contextRoots : [...DEFAULT_CONTEXT_ROOTS],
+    contextDocMaxBytes: parsed.CONTEXT_DOC_MAX_BYTES,
   };
 }

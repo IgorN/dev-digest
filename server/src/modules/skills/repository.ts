@@ -121,6 +121,26 @@ export class SkillsRepository {
     return row;
   }
 
+  /**
+   * Replace the skill's ordered attached context-document paths (full set per
+   * change). Parallel to `evidence_files`: attachments are metadata, NOT part
+   * of the prompt-affecting `body`, so this never bumps the version and never
+   * snapshots skill_versions (D6). Returns undefined when the skill isn't in
+   * this workspace.
+   */
+  async setContextDocuments(
+    workspaceId: string,
+    id: string,
+    paths: string[],
+  ): Promise<SkillRow | undefined> {
+    const [row] = await this.db
+      .update(t.skills)
+      .set({ contextDocuments: paths })
+      .where(and(eq(t.skills.workspaceId, workspaceId), eq(t.skills.id, id)))
+      .returning();
+    return row;
+  }
+
   private async snapshotVersion(
     row: SkillRow,
     version: number,

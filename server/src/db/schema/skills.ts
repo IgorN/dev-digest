@@ -17,6 +17,9 @@ export const skills = pgTable('skills', {
   enabled: boolean('enabled').notNull().default(true),
   version: integer('version').notNull().default(1),
   evidenceFiles: jsonb('evidence_files').$type<string[]>(),
+  // Ordered repo-relative paths of markdown docs attached as project context
+  // (paths only, never content — read from the clone at run time).
+  contextDocuments: jsonb('context_documents').$type<string[]>(),
   createdAt: now(),
 });
 

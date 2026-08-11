@@ -65,6 +65,33 @@ export const Risks = z.object({
 });
 export type Risks = z.infer<typeof Risks>;
 
+// ---- Why + Risk Brief ----
+export const ReviewFocusItem = z.object({
+  file: z.string(),
+  line: z.number().int().nullish(),
+  reason: z.string(),
+});
+export type ReviewFocusItem = z.infer<typeof ReviewFocusItem>;
+
+export const WhyRiskBrief = z.object({
+  what: z.string(),
+  why: z.string(),
+  risk_level: RiskSeverity,
+  risks: z.array(Risk),
+  review_focus: z.array(ReviewFocusItem),
+  degraded: z.boolean(),
+  degraded_reason: z.string().nullable(),
+  /** Cost/token accounting for the ONE synthesis call — null on a degraded
+   *  skeleton (no successful call was made); nullish (not just nullable) so
+   *  a brief persisted before this field existed still parses (the key is
+   *  simply absent, not `null`) — same reasoning as `OnboardingSection`'s
+   *  `commands` field. Surfaced client-side via RunCostBadge. */
+  tokens_in: z.number().int().nullish(),
+  tokens_out: z.number().int().nullish(),
+  cost_usd: z.number().nullish(),
+});
+export type WhyRiskBrief = z.infer<typeof WhyRiskBrief>;
+
 // ---- PR History ----
 export const PrHistoryItem = z.object({
   pr_number: z.number().int(),
@@ -120,7 +147,7 @@ export type SmartDiff = z.infer<typeof SmartDiff>;
 export const PrBrief = z.object({
   intent: Intent,
   blast: BlastRadius,
-  risks: Risks,
+  risks: z.array(Risk),
   history: PrHistory,
 });
 export type PrBrief = z.infer<typeof PrBrief>;

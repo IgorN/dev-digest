@@ -63,6 +63,7 @@ cd reviewer-core && npm test
 cd server && pnpm exec vitest run --exclude '**/*.it.test.ts'  # unit (no Docker)
 cd server && pnpm exec vitest run .it.test                     # integration (Docker)
 cd client && pnpm test
+cd mcp-server && pnpm test        # unit lane, same *.it.test.ts exclusion as server
 ```
 
 ## Gotchas (not obvious from code)
@@ -86,3 +87,6 @@ cd client && pnpm test
 - Gotchas & findings → that package's `INSIGHTS.md`
 - How insights get captured → `.claude/skills/engineering-insights/SKILL.md`
 - Sub-agent pipeline for developing DevDigest itself → `.claude/agents/README.md`
+- Spec-Driven Development (specs → plans → execution) → `specs/README.md`;
+  specs live in `specs/` (cross-module) or `<package>/specs/`, plans in `docs/plans/`,
+  execution via the `run-plan` skill

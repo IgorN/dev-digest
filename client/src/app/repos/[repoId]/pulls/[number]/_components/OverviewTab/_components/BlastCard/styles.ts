@@ -88,15 +88,21 @@ export const s = {
   callerList: {
     display: "flex",
     flexDirection: "column",
-    gap: 2,
+    gap: 6,
   } satisfies CSSProperties,
+  // Bordered-row treatment mirroring OnboardingView/styles.ts's `pathRow` —
+  // same border/radius/background shape, colocated here rather than imported
+  // across folders. Subtle background differentiation from the parent
+  // `symbolBody` (which has no background of its own, inheriting
+  // `symbolRow`'s `--bg-elevated`).
   callerRow: {
     display: "flex",
     alignItems: "center",
     gap: 8,
-    padding: "4px 0",
-    background: "none",
-    border: "none",
+    padding: "8px 10px",
+    borderRadius: 8,
+    border: "1px solid var(--border)",
+    background: "var(--bg-base, transparent)",
     cursor: "pointer",
     textAlign: "left",
     color: "var(--text-secondary)",

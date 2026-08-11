@@ -32,7 +32,7 @@ export type {
 } from "@devdigest/shared";
 
 export type { Review, Finding, Severity, Verdict, ReviewRecord, FindingRecord } from "@devdigest/shared";
-export type { PrBrief, SmartDiff, SmartDiffFile, SmartDiffGroup, SmartDiffRole, ProposedSplit } from "@devdigest/shared";
+export type { PrBrief, SmartDiff, SmartDiffFile, SmartDiffGroup, SmartDiffRole, ProposedSplit, WhyRiskBrief, ReviewFocusItem, Risk, RiskSeverity } from "@devdigest/shared";
 export type { BlastRadius, ChangedSymbol, DownstreamImpact, BlastCaller } from "@devdigest/shared";
 
 /** UI-only view model for a PR list row (derives display fields from PrMeta). */

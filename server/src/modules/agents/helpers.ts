@@ -1,5 +1,7 @@
 import type { Agent, AgentVersion, CiFailOn, Provider, ReviewStrategy } from '@devdigest/shared';
 import { AgentVersionConfig } from '@devdigest/shared';
+import { ValidationError } from '../../platform/errors.js';
+import { isMarkdownPath, isPathSafe } from '../context/helpers.js';
 import type { AgentRow, AgentVersionRow } from './repository.js';
 
 /**
@@ -25,7 +27,33 @@ export function toAgentDto(row: AgentRow, skillCount = 0): Agent {
     ci_fail_on: row.ciFailOn as CiFailOn,
     repo_intel: row.repoIntel,
     skill_count: skillCount,
+    context_documents: row.contextDocuments ?? null,
   };
+}
+
+/**
+ * Validate + normalize an ordered set of attached context-document paths
+ * (AC-19 save-time half). Pure: rejects any path failing the lexical
+ * `isPathSafe` guard or that isn't markdown (only `.md` is attachable), and
+ * dedups repeats preserving the FIRST occurrence (order is meaningful — it is
+ * the injection order at run time). Throws `ValidationError` → 422.
+ */
+export function normalizeContextDocuments(paths: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const path of paths) {
+    if (!isPathSafe(path)) {
+      throw new ValidationError(`Unsafe context document path: ${path}`);
+    }
+    if (!isMarkdownPath(path)) {
+      throw new ValidationError(`Only markdown (.md) documents can be attached: ${path}`);
+    }
+    if (!seen.has(path)) {
+      seen.add(path);
+      out.push(path);
+    }
+  }
+  return out;
 }
 
 /**
