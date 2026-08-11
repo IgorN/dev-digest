@@ -61,6 +61,12 @@ export interface StructuredRequest<T> {
   maxTokens?: number;
   timeoutMs?: number;
   maxRetries?: number;
+  /**
+   * OpenRouter session id — groups related generations (e.g. all map-reduce
+   * chunks of one review) into a session in the OpenRouter dashboard. Sent as
+   * the `session_id` body field; ignored by providers that don't support it.
+   */
+  sessionId?: string;
 }
 
 export interface StructuredResult<T> {
@@ -74,7 +80,7 @@ export interface StructuredResult<T> {
 }
 
 export interface LLMProvider {
-  readonly id: 'openai' | 'anthropic';
+  readonly id: 'openai' | 'anthropic' | 'openrouter';
   listModels(): Promise<ModelInfo[]>;
   complete(req: CompletionRequest): Promise<CompletionResult>;
   completeStructured<T>(req: StructuredRequest<T>): Promise<StructuredResult<T>>;
@@ -119,6 +125,52 @@ export interface OpenPrPayload {
   body: string;
 }
 
+/** A single file to write in a commit (path relative to repo root + UTF-8 text). */
+export interface CommitFile {
+  path: string;
+  contents: string;
+}
+
+export interface CommitFilesPayload {
+  /** Branch to create-or-update with the commit (e.g. "devdigest/ci"). */
+  branch: string;
+  /** Base branch to fork from when `branch` does not yet exist (e.g. "main"). */
+  base: string;
+  message: string;
+  files: CommitFile[];
+}
+
+/**
+ * One GitHub Actions workflow run (Export-to-CI ingest).
+ *
+ * `id` is a string because it is persisted as the ingest idempotency key and
+ * GitHub's run ids exceed the safe-integer comfort zone in aggregate tooling.
+ * `pull_requests` is frequently EMPTY on a `pull_request`-triggered run, so
+ * `pull_number` is best-effort — the ingest prefers the artifact's own number.
+ */
+export interface WorkflowRunMeta {
+  id: string;
+  /** `queued` | `in_progress` | `completed` (GitHub's vocabulary, passed through). */
+  status: string | null;
+  /** `success` | `failure` | `cancelled` | `skipped` | … — null while running. */
+  conclusion: string | null;
+  html_url: string;
+  created_at: string;
+  updated_at: string;
+  run_started_at: string | null;
+  /** The PR title snapshot GitHub renders for the run. */
+  display_title: string | null;
+  pull_number: number | null;
+}
+
+/** One artifact attached to a workflow run. */
+export interface ArtifactMeta {
+  id: string;
+  name: string;
+  size_in_bytes: number;
+  expired: boolean;
+}
+
 export interface GitHubClient {
   listPullRequests(repo: RepoRef): Promise<PrMeta[]>;
   getPullRequest(repo: RepoRef, n: number): Promise<PrDetail>;
@@ -132,9 +184,40 @@ export interface GitHubClient {
     input: CreateReviewCommentInput,
   ): Promise<PrReviewComment>;
   openPullRequest(repo: RepoRef, payload: OpenPrPayload): Promise<{ url: string }>;
+  /**
+   * Commit `files` onto `branch` as ONE atomic commit via the Git Data API:
+   * one blob per file (base64), then a single tree layered on the parent's tree
+   * (so unrelated files on the branch survive), then a commit, then the ref.
+   * Creates `branch` from `base` when it does not exist, else fast-forwards it.
+   * Re-publishing simply adds another commit.
+   */
+  commitFiles(repo: RepoRef, payload: CommitFilesPayload): Promise<{ branch: string }>;
+  /** The open PR whose head is `branch`, if any (so re-publish reuses it). */
+  findOpenPr(repo: RepoRef, branch: string): Promise<{ url: string } | null>;
   getIssue(repo: RepoRef, n: number): Promise<IssueMeta>;
   /** GET /user — for "posting as @user". */
   currentLogin(): Promise<string>;
+
+  // ---------- Actions (read-only; Export-to-CI ingest) ----------
+  /**
+   * Runs of one workflow, addressed by its FILE NAME (e.g.
+   * `devdigest-review.yml`), newest first, capped at `limit`.
+   * Requires the token's `Actions: read` scope — a 403 here is distinct from a
+   * repository-access failure and must be surfaced as such.
+   */
+  listWorkflowRuns(
+    repo: RepoRef,
+    workflowFile: string,
+    limit: number,
+  ): Promise<WorkflowRunMeta[]>;
+  /** Artifacts attached to one workflow run. */
+  listRunArtifacts(repo: RepoRef, runId: string): Promise<ArtifactMeta[]>;
+  /**
+   * Download one artifact as a ZIP archive. The body is UNTRUSTED input from
+   * someone else's CI: implementations must refuse anything over `maxBytes`
+   * rather than buffering it. Extraction is the caller's concern.
+   */
+  downloadArtifact(repo: RepoRef, artifactId: string, maxBytes?: number): Promise<Uint8Array>;
 }
 
 // ---------- Git (simple-git, heavy) ----------
@@ -176,12 +259,27 @@ export interface GitCommit {
 export interface GitClient {
   clone(repo: RepoRef, url: string, opts?: CloneOptions): Promise<{ path: string }>;
   fetchPullHead(repo: RepoRef, n: number): Promise<void>;
+  /**
+   * Resync an already-cloned repo to the tip of `branch`: fetch from origin and
+   * advance the local working tree to `origin/<branch>`. Unlike `clone`'s bare
+   * `fetch` (which only moves remote-tracking refs), this moves local HEAD so a
+   * subsequent index reflects the latest code. Returns the new HEAD sha.
+   */
+  sync(repo: RepoRef, branch: string): Promise<{ head: string }>;
   currentHead(repo: RepoRef): Promise<string>;
   diff(repo: RepoRef, base: string, head: string): Promise<UnifiedDiff>;
+  /**
+   * Names of files changed between two commits (`git diff --name-only base..head`).
+   * Two-dot form is intentional — we want files reachable from `head` but not `base`,
+   * matching the incremental indexer's "what moved since last_indexed_sha?" semantics.
+   * Returns an empty array when the two refs resolve to the same commit.
+   */
+  diffNameOnly(repo: RepoRef, base: string, head: string): Promise<string[]>;
   blame(repo: RepoRef, path: string): Promise<BlameLine[]>;
   log(repo: RepoRef, path?: string): Promise<GitCommit[]>;
   readFile(repo: RepoRef, path: string): Promise<string>;
-  /** Tracked file paths in the working tree (`git ls-files`). */
+  /** Tracked file paths in the working tree (`git ls-files`) — honors
+   *  `.gitignore` for free, so no node_modules/build output. */
   listFiles(repo: RepoRef): Promise<string[]>;
   clonePathFor(repo: RepoRef): string;
 }
