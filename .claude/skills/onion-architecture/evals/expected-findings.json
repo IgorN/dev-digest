@@ -1,0 +1,84 @@
+{
+  "skill": "onion-architecture",
+  "fixtures_root": "fixtures/",
+  "findings": [
+    {
+      "id": 1,
+      "file": "fixtures/webhooks/routes.ts",
+      "line": 29,
+      "rule": "raw-sql-in-route",
+      "catalog_ref": "references/violations.md#1",
+      "description": "Route handler runs a Drizzle query against webhookDeliveries directly instead of delegating to the service/repository."
+    },
+    {
+      "id": 2,
+      "file": "fixtures/webhooks/service.ts",
+      "line": 7,
+      "rule": "env-var-in-service",
+      "catalog_ref": "references/violations.md#2",
+      "description": "Service reads the webhook secret via process.env.GITHUB_WEBHOOK_SECRET instead of container.secrets.get(...)."
+    },
+    {
+      "id": 3,
+      "file": "fixtures/webhooks/routes.ts",
+      "line": 20,
+      "rule": "hand-built-error-envelope",
+      "catalog_ref": "references/violations.md#6",
+      "description": "Route hand-builds a 401 error envelope with reply.status().send({ error: ... }) instead of throwing a typed domain error."
+    },
+    {
+      "id": 4,
+      "file": "fixtures/digest-summary/helpers.ts",
+      "line": 29,
+      "rule": "io-in-helper",
+      "catalog_ref": "references/violations.md#3",
+      "description": "enrichWithAuthor lives in helpers.ts but awaits a Drizzle db.select() call — I/O inside what should be a pure helper."
+    },
+    {
+      "id": 5,
+      "file": "fixtures/digest-summary/repository.ts",
+      "line": 20,
+      "rule": "business-logic-in-repository",
+      "catalog_ref": "references/violations.md#4",
+      "description": "saveSummary decides whether to update vs insert and conditionally enqueues a notification job (container.jobs.enqueue at line 31) — orchestration/business decisions living in the repository."
+    },
+    {
+      "id": 6,
+      "file": "fixtures/digest-summary/service.ts",
+      "line": 23,
+      "rule": "http-shaping-in-service",
+      "catalog_ref": "references/violations.md#5",
+      "description": "generate() takes a Fastify FastifyReply and calls reply.status(...) directly — HTTP status mapping belongs in routes.ts, not the service."
+    },
+    {
+      "id": 7,
+      "file": "fixtures/team-directory/service.ts",
+      "line": 3,
+      "rule": "cross-module-reach-around",
+      "catalog_ref": "references/violations.md#7",
+      "description": "Imports and instantiates RepoRepository from the repos module directly (line 14) instead of reaching repo data through the container's shared capability."
+    },
+    {
+      "id": 8,
+      "file": "fixtures/team-directory/service.ts",
+      "line": 19,
+      "rule": "adapter-not-via-container",
+      "catalog_ref": "references/violations.md#2",
+      "description": "Constructs `new OctokitGitHubClient(token)` directly instead of pulling the GitHub adapter off the container (e.g. container.github())."
+    },
+    {
+      "id": 9,
+      "file": "fixtures/team-directory/repository.ts",
+      "line": 11,
+      "rule": "missing-workspace-scoping",
+      "catalog_ref": "SKILL.md invariant 4 / references/violations.md checklist",
+      "description": "list() (and the upsertMember existing-row lookup at line 21) query teamMembers with no workspaceId filter — not tenancy-scoped."
+    }
+  ],
+  "grading": {
+    "metric": "recall",
+    "formula": "matched_findings / total_findings",
+    "match_rule": "A finding counts as matched if the review output identifies the same file AND the same underlying issue (by rule), independent of exact wording or whether it cites the line number.",
+    "pass_threshold": 0.9
+  }
+}

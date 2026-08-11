@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { Verdict, Finding } from './findings.js';
-import { EvalRun, EvalOwnerKind, Conformance } from './knowledge.js';
+import { EvalRun, EvalCase, EvalOwnerKind, Conformance } from './knowledge.js';
 
 /**
  * A4 — Eval / CI / Compose / Conformance API contracts (L06).
@@ -45,6 +45,16 @@ export const EvalRunRecord = z.object({
 });
 export type EvalRunRecord = z.infer<typeof EvalRunRecord>;
 
+/** A case plus its most recent persisted run (if any) — what `GET
+   /agents/:id/eval-cases` returns, so a case list survives a page reload
+   without collapsing every row back to "never run" (that neutral state
+   should mean "genuinely never run", not "the client forgot"). `null` when
+   the case has no runs yet. */
+export const EvalCaseWithLatestRun = EvalCase.extend({
+  latest_run: EvalRunRecord.nullable(),
+});
+export type EvalCaseWithLatestRun = z.infer<typeof EvalCaseWithLatestRun>;
+
 /** Result of running a single case: the metrics (EvalRun) + the persisted row id. */
 export const EvalRunResult = z.object({
   run_id: z.string(),
@@ -53,8 +63,17 @@ export const EvalRunResult = z.object({
 });
 export type EvalRunResult = z.infer<typeof EvalRunResult>;
 
-/** One point on the dashboard trend (per run, chronological). */
+/**
+ * One point on the dashboard trend — one row per RUN BATCH (all case-rows
+ * inserted by a single `POST /agents/:id/eval-runs` call), not per case-row.
+ * `run_id` is the batch id (`eval_runs.run_batch_id`); `agent_version` pins the
+ * agent config snapshot (`eval_runs.agent_version`) the batch was executed
+ * against, so two batches can be compared even after the agent's live config
+ * has since moved on.
+ */
 export const EvalTrendPoint = z.object({
+  run_id: z.string(),
+  agent_version: z.number().int(),
   ran_at: z.string(),
   recall: z.number(),
   precision: z.number(),
@@ -83,10 +102,53 @@ export const EvalDashboard = z.object({
     citation_accuracy: z.number(),
   }),
   trend: z.array(EvalTrendPoint),
-  recent_runs: z.array(EvalRunRecord),
+  /** One row per run BATCH (see `EvalTrendPoint`), newest first. */
+  recent_runs: z.array(EvalTrendPoint),
   alert: z.string().nullable(),
 });
 export type EvalDashboard = z.infer<typeof EvalDashboard>;
+
+/** Request body for `POST /agents/:id/eval-runs`. Omitted/empty = every case in the set. */
+export const EvalRunBatchInput = z.object({
+  case_ids: z.array(z.string()).optional(),
+});
+export type EvalRunBatchInput = z.infer<typeof EvalRunBatchInput>;
+
+/** Response of `POST /agents/:id/eval-runs` — the per-case results plus the refreshed dashboard. */
+export const EvalRunBatchResponse = z.object({
+  run_batch_id: z.string(),
+  results: z.array(EvalRunResult),
+  dashboard: EvalDashboard,
+});
+export type EvalRunBatchResponse = z.infer<typeof EvalRunBatchResponse>;
+
+/** Request body for the one-click "turn this finding into an eval case" action. */
+export const EvalCaseFromFindingInput = z.object({
+  finding_id: z.string(),
+});
+export type EvalCaseFromFindingInput = z.infer<typeof EvalCaseFromFindingInput>;
+
+/** One agent's row on the workspace-wide Eval Dashboard index. */
+export const EvalAgentSummary = z.object({
+  agent_id: z.string(),
+  agent_name: z.string(),
+  dashboard: EvalDashboard,
+});
+export type EvalAgentSummary = z.infer<typeof EvalAgentSummary>;
+
+/** One row in the workspace-wide "recent eval runs · all agents" table. */
+export const EvalGlobalRunRow = EvalTrendPoint.extend({
+  agent_id: z.string(),
+  agent_name: z.string(),
+});
+export type EvalGlobalRunRow = z.infer<typeof EvalGlobalRunRow>;
+
+/** Response of `GET /eval-dashboard` — the workspace-wide index view. */
+export const EvalWorkspaceDashboard = z.object({
+  agents: z.array(EvalAgentSummary),
+  recent_runs: z.array(EvalGlobalRunRow),
+});
+export type EvalWorkspaceDashboard = z.infer<typeof EvalWorkspaceDashboard>;
 
 // ===========================================================================
 // Compose Review

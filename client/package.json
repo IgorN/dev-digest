@@ -8,7 +8,8 @@
     "start": "next start -p 3000",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "verify:l03": "vitest run SmartDiffViewer.test.tsx"
+    "verify:l03": "vitest run SmartDiffViewer.test.tsx",
+    "verify:l06": "vitest run EvalCaseEditor.test.tsx EvalsTab.test.tsx EvalAgentDrillIn.test.tsx CompareRunsModal.test.tsx EvalDashboardIndex.test.tsx eval.test.tsx"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.62.8",

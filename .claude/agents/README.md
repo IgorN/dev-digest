@@ -99,7 +99,9 @@ files — everything else is read-only to it. What/why only — never the how.
 Takes an **agreed set of requirements** (usually a `spec-creator` spec) and
 produces the **Implementation Plan** at `docs/plans/<feature-slug>.md`. It
 does not author or edit specs — requirements are input. Always starts by
-verifying them (restate as R-ids, ask 1–4 clarifying questions, give
+verifying them (map R-ids onto the spec's `AC-N` ids — ids only, the spec
+keeps the requirement text; restated requirements only when there is no
+spec — ask 1–4 clarifying questions, give
 explicit recommendations), then needs the user's choice of
 **multi-agent (parallel)** vs **single-agent** execution — open questions
 and the mode question come back as its final response, and it plans on

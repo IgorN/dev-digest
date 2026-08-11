@@ -20,6 +20,7 @@ export function FindingsPanel({
   severityFilter = null,
   targetFindingId = null,
   targetFindingNonce = 0,
+  reviewAgentId = null,
 }: {
   findings: FindingRecord[];
   prId: string;
@@ -31,6 +32,9 @@ export function FindingsPanel({
      the matching FindingCard and moves keyboard focus (j/k) onto it. */
   targetFindingId?: string | null;
   targetFindingNonce?: number;
+  /** The owning review's agent id — forwarded to each FindingCard to gate
+     "Turn into eval case" (`null` = review has no agent, action disabled). */
+  reviewAgentId?: string | null;
 }) {
   const t = useTranslations("prReview");
   const action = useFindingAction();
@@ -89,6 +93,7 @@ export function FindingsPanel({
               repoFullName={repoFullName}
               headSha={headSha}
               forceExpandNonce={f.id === targetFindingId ? targetFindingNonce : undefined}
+              reviewAgentId={reviewAgentId}
               onAction={(act) => action.mutate({ findingId: f.id, action: act, prId })}
             />
           ))
