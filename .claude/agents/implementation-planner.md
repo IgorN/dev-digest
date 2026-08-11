@@ -172,6 +172,23 @@ For heavy or open-ended discovery, delegate via the `Agent` tool — `researcher
 what calls Y" lookups — so the raw exploration stays out of your context and only the conclusion
 comes back.
 
+**Delegation is not free — fan out early, in one batch.** You block while a sub-agent runs, and a
+stall longer than ~5 minutes expires the prompt cache, forcing your *entire* accumulated prefix to
+be re-written at cache-write rates. The cost scales with how far into the run you are: in a measured
+run, two stalls late in a planning pass re-wrote a 313k-token prefix three times and accounted for
+**75% of that planner's total cache-write spend**. So: do all your delegation in a single parallel
+batch as early as possible, while the prefix is still small; never fan out again late in the run to
+chase a detail you could read yourself. If the caller already supplied investigation findings in
+your brief, use them — do not re-investigate what you were handed.
+
+**Pre-flight the vendored contracts.** Before planning any task that touches `@devdigest/shared`,
+run `diff -r server/src/vendor/shared client/src/vendor/shared` (read-only, cheap). The two copies
+are hand-synced and silently drift; a divergence found now is a planned `orchestrator/human` task,
+while the same divergence found mid-implementation stalls a parallel run. Record what you find under
+`Affected packages & contracts` — including "the copies were already in sync" — so the implementers
+know the baseline. (A real run: the two copies of `eval-ci.ts` had diverged by 33 lines before the
+feature started; it surfaced only mid-implementation.)
+
 ## Method
 
 1. **Verify the requirements** (Step 1): restate, collect clarifying questions, give recommendations.
@@ -253,6 +270,8 @@ multi-agent (parallel) | single-agent (one pass) — <one line on what the user 
 - [ ] (multi-agent) Concurrent tasks have non-overlapping Owned paths
 - [ ] Every Acceptance is measurable
 - [ ] Vendored-contract and e2e tasks are owned by orchestrator/human, not a parallel implementer
+- [ ] If the work touches `@devdigest/shared`, the two vendored copies were diffed and the result
+      (in sync / diverged where) is recorded under `Affected packages & contracts`
 - [ ] No tests/builds were run during planning
 - [ ] Any model-generated structure the UI/code parses is a typed output-schema field, not a prose
       formatting rule in the prompt

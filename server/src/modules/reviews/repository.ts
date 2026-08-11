@@ -169,6 +169,8 @@ export class ReviewRepository {
     prId: string;
     provider: string | null;
     model: string | null;
+    /** Multi-agent fan-out this run belongs to; omitted for legacy single/all launches. */
+    multiRunId?: string | null;
   }): Promise<string> {
     return runRepo.createAgentRun(this.db, values);
   }

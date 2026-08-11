@@ -4,11 +4,12 @@
  * a settled run is colored/labelled by its denormalized blocker/finding counts,
  * and shows the review score ring.
  */
-import { describe, it, expect, afterEach } from "vitest";
-import { render, screen, cleanup } from "@testing-library/react";
+import { describe, it, expect, afterEach, vi } from "vitest";
+import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
-import type { RunSummary } from "@devdigest/shared";
+import type { RunSummary, LatestMultiRunRef } from "@devdigest/shared";
 import messages from "../../../../../../../../messages/en/prReview.json";
+import multiAgent from "../../../../../../../../messages/en/multiAgent.json";
 import { RunHistory } from "./RunHistory";
 
 afterEach(cleanup);
@@ -35,12 +36,29 @@ function run(o: Partial<RunSummary>): RunSummary {
   };
 }
 
-function renderRuns(runs: RunSummary[]) {
+function renderRuns(
+  runs: RunSummary[],
+  extra: {
+    latestMultiRun?: LatestMultiRunRef | null;
+    onOpenMultiRun?: (id: string) => void;
+  } = {},
+) {
   return render(
-    <NextIntlClientProvider locale="en" messages={{ prReview: messages }}>
-      <RunHistory runs={runs} onOpenTrace={() => {}} />
+    <NextIntlClientProvider locale="en" messages={{ prReview: messages, multiAgent }}>
+      <RunHistory runs={runs} onOpenTrace={() => {}} {...extra} />
     </NextIntlClientProvider>,
   );
+}
+
+function multiRun(o: Partial<LatestMultiRunRef> = {}): LatestMultiRunRef {
+  return {
+    id: "mr-newest",
+    pr_id: "pr1",
+    pr_number: 1,
+    pr_title: "feat(notes): add notes search and create",
+    ran_at: "2026-06-11T19:10:00.000Z",
+    ...o,
+  };
 }
 
 describe("RunHistory — outcome badge", () => {
@@ -72,5 +90,43 @@ describe("RunHistory — outcome badge", () => {
   it("a running run reads 'running'", () => {
     renderRuns([run({ status: "running", score: null, blockers: null })]);
     expect(screen.getByText("running")).toBeInTheDocument();
+  });
+});
+
+describe("RunHistory — multi-agent re-entry (AC-21a/AC-21b)", () => {
+  it("a PR with NO prior multi-run renders no re-entry entry", () => {
+    renderRuns([run({})]);
+    expect(screen.queryByRole("button", { name: "Open multi-agent result" })).not.toBeInTheDocument();
+  });
+
+  it("a PR with a prior multi-run renders the entry and activating it navigates only", () => {
+    const onOpenMultiRun = vi.fn();
+    renderRuns([run({})], { latestMultiRun: multiRun(), onOpenMultiRun });
+
+    const entry = screen.getByRole("button", { name: "Open multi-agent result" });
+    expect(screen.getByText("Multi-agent review")).toBeInTheDocument();
+
+    fireEvent.click(entry);
+    // Pure navigation: exactly the id the server returned as latest, and no
+    // launch of any kind (the component owns no mutation at all).
+    expect(onOpenMultiRun).toHaveBeenCalledTimes(1);
+    expect(onOpenMultiRun).toHaveBeenCalledWith("mr-newest");
+  });
+
+  it("targets exactly the server-resolved id — the client re-orders nothing", () => {
+    const onOpenMultiRun = vi.fn();
+    // `ran_at` older than the run in the list: the entry still targets it,
+    // because "newest" was decided server-side by the multi-run's own stamp.
+    renderRuns([run({ ran_at: "2026-06-11T23:00:00.000Z" })], {
+      latestMultiRun: multiRun({ id: "mr-server-picked", ran_at: "2026-06-11T01:00:00.000Z" }),
+      onOpenMultiRun,
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Open multi-agent result" }));
+    expect(onOpenMultiRun).toHaveBeenCalledWith("mr-server-picked");
+  });
+
+  it("renders the entry even when the PR has no runs and no commits at all", () => {
+    renderRuns([], { latestMultiRun: multiRun(), onOpenMultiRun: vi.fn() });
+    expect(screen.getByRole("button", { name: "Open multi-agent result" })).toBeInTheDocument();
   });
 });

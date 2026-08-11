@@ -5,7 +5,8 @@ import { RunLogger } from '../../platform/run-logger.js';
 import * as schema from '../../db/schema.js';
 import type { AgentRow } from '../../db/rows.js';
 import type { ReviewRepository, FindingRow, PullRow, ReviewRow } from './repository.js';
-import { REVIEW_STRATEGY } from './constants.js';
+import { AGENT_FANOUT_CONCURRENCY, REVIEW_STRATEGY } from './constants.js';
+import { runBounded } from './concurrency.js';
 import { taskLine } from './helpers.js';
 import { loadDiff } from './diff-loader.js';
 import {
@@ -43,9 +44,9 @@ export type RunOutcome = {
 
 /**
  * Owns the background execution of queued agent runs (extracted from
- * ReviewService; behaviour unchanged). Loads the diff + intent once, then
- * map-reduces each agent, streaming events over the runBus and persisting each
- * review. Per-agent failures are isolated.
+ * ReviewService). Loads the diff + intent ONCE, then fans the agents out over a
+ * bounded worker pool (`AGENT_FANOUT_CONCURRENCY` at a time), streaming events
+ * over the runBus and persisting each review. Per-agent failures are isolated.
  */
 export class ReviewRunExecutor {
   constructor(
@@ -56,8 +57,14 @@ export class ReviewRunExecutor {
 
   /**
    * Background execution of the queued agent runs (NOT awaited by the route).
-   * Loads the diff + intent once, then map-reduces each agent, streaming events
-   * over the runBus and persisting each review. Per-agent failures are isolated.
+   *
+   * Loads the shared pre-work — the PR diff and the previously-computed intent —
+   * EXACTLY ONCE, before the fan-out, then runs the agents CONCURRENTLY over a
+   * bounded pool of `AGENT_FANOUT_CONCURRENCY` workers, streaming events over
+   * the runBus and persisting each review. Per-agent failures stay isolated:
+   * each job owns its run id, its run-bus channel and its persisted trace, and
+   * `runOneAgent` narrows the fanned-out pre-work logger to its own run — so
+   * concurrent lanes cannot interleave each other's live logs.
    */
   async executeRuns(
     workspaceId: string,
@@ -125,7 +132,12 @@ export class ReviewRunExecutor {
       runLog.info(`Intent lookup failed — proceeding without it: ${(err as Error).message}`);
     }
 
-    for (const { agent, runId } of jobs) {
+    // Bounded fan-out: the per-job block below is unchanged from the sequential
+    // version — same start log, same runOneAgent call, same try/catch that only
+    // LOGS (runOneAgent has already persisted the failure status, error text
+    // and trace). `runBounded` never rejects, so one failing lane can neither
+    // abort nor short-circuit the others.
+    await runBounded(jobs, AGENT_FANOUT_CONCURRENCY, async ({ agent, runId }) => {
       const agentStart = Date.now();
       logger?.info(
         { runId, agent: agent.name, provider: agent.provider, model: agent.model, prId: pull.id },
@@ -152,7 +164,7 @@ export class ReviewRunExecutor {
           `review: agent "${agent.name}" ${cancelled ? 'cancelled' : 'failed'}`,
         );
       }
-    }
+    });
   }
 
   /** Execute a single agent's review against a PR, streaming progress. */

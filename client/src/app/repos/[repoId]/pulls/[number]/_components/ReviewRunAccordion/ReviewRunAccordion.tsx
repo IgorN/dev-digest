@@ -180,6 +180,7 @@ export function ReviewRunAccordion({
             severityFilter={severityFilter}
             targetFindingId={targetFindingId}
             targetFindingNonce={targetFindingNonce}
+            reviewAgentId={review.agent_id}
           />
         </div>
       )}

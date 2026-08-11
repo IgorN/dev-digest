@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { Verdict, Finding } from './findings.js';
-import { EvalRun, EvalOwnerKind, Conformance, Provider, CiFailOn } from './knowledge.js';
+import { EvalRun, EvalCase, EvalOwnerKind, Conformance, Provider, CiFailOn } from './knowledge.js';
 
 /**
  * A4 — Eval / CI / Compose / Conformance API contracts (L06).
@@ -45,6 +45,16 @@ export const EvalRunRecord = z.object({
 });
 export type EvalRunRecord = z.infer<typeof EvalRunRecord>;
 
+/** A case plus its most recent persisted run (if any) — what `GET
+   /agents/:id/eval-cases` returns, so a case list survives a page reload
+   without collapsing every row back to "never run" (that neutral state
+   should mean "genuinely never run", not "the client forgot"). `null` when
+   the case has no runs yet. */
+export const EvalCaseWithLatestRun = EvalCase.extend({
+  latest_run: EvalRunRecord.nullable(),
+});
+export type EvalCaseWithLatestRun = z.infer<typeof EvalCaseWithLatestRun>;
+
 /** Result of running a single case: the metrics (EvalRun) + the persisted row id. */
 export const EvalRunResult = z.object({
   run_id: z.string(),
@@ -53,8 +63,17 @@ export const EvalRunResult = z.object({
 });
 export type EvalRunResult = z.infer<typeof EvalRunResult>;
 
-/** One point on the dashboard trend (per run, chronological). */
+/**
+ * One point on the dashboard trend — one row per RUN BATCH (all case-rows
+ * inserted by a single `POST /agents/:id/eval-runs` call), not per case-row.
+ * `run_id` is the batch id (`eval_runs.run_batch_id`); `agent_version` pins the
+ * agent config snapshot (`eval_runs.agent_version`) the batch was executed
+ * against, so two batches can be compared even after the agent's live config
+ * has since moved on.
+ */
 export const EvalTrendPoint = z.object({
+  run_id: z.string(),
+  agent_version: z.number().int(),
   ran_at: z.string(),
   recall: z.number(),
   precision: z.number(),
@@ -83,10 +102,54 @@ export const EvalDashboard = z.object({
     citation_accuracy: z.number(),
   }),
   trend: z.array(EvalTrendPoint),
-  recent_runs: z.array(EvalRunRecord),
+  /** One row per run BATCH (see `EvalTrendPoint`), newest first. */
+  recent_runs: z.array(EvalTrendPoint),
   alert: z.string().nullable(),
 });
 export type EvalDashboard = z.infer<typeof EvalDashboard>;
+
+/** Request body for `POST /agents/:id/eval-runs`. Omitted/empty = every case in the set. */
+export const EvalRunBatchInput = z.object({
+  case_ids: z.array(z.string()).optional(),
+});
+export type EvalRunBatchInput = z.infer<typeof EvalRunBatchInput>;
+
+/** Response of `POST /agents/:id/eval-runs` — the per-case results plus the refreshed dashboard. */
+export const EvalRunBatchResponse = z.object({
+  run_batch_id: z.string(),
+  results: z.array(EvalRunResult),
+  dashboard: EvalDashboard,
+});
+export type EvalRunBatchResponse = z.infer<typeof EvalRunBatchResponse>;
+
+/** Request body for the one-click "turn this finding into an eval case" action. */
+export const EvalCaseFromFindingInput = z.object({
+  finding_id: z.string(),
+});
+export type EvalCaseFromFindingInput = z.infer<typeof EvalCaseFromFindingInput>;
+
+/** One agent's row on the workspace-wide Eval Dashboard index. */
+export const EvalAgentSummary = z.object({
+  agent_id: z.string(),
+  agent_name: z.string(),
+  agent_model: z.string(),
+  dashboard: EvalDashboard,
+});
+export type EvalAgentSummary = z.infer<typeof EvalAgentSummary>;
+
+/** One row in the workspace-wide "recent eval runs · all agents" table. */
+export const EvalGlobalRunRow = EvalTrendPoint.extend({
+  agent_id: z.string(),
+  agent_name: z.string(),
+});
+export type EvalGlobalRunRow = z.infer<typeof EvalGlobalRunRow>;
+
+/** Response of `GET /eval-dashboard` — the workspace-wide index view. */
+export const EvalWorkspaceDashboard = z.object({
+  agents: z.array(EvalAgentSummary),
+  recent_runs: z.array(EvalGlobalRunRow),
+});
+export type EvalWorkspaceDashboard = z.infer<typeof EvalWorkspaceDashboard>;
 
 // ===========================================================================
 // Compose Review
@@ -138,6 +201,12 @@ export const CiFile = z.object({
   path: z.string(),
   contents: z.string(),
   editable: z.boolean().default(true),
+  /**
+   * Set for entries whose real payload is binary/huge (the runner bundle): the
+   * client renders this marker instead, and `contents` is the empty string —
+   * shipping 1.6 MB of ncc output through the preview response would be absurd.
+   */
+  placeholder: z.string().nullish(),
 });
 export type CiFile = z.infer<typeof CiFile>;
 
@@ -179,18 +248,63 @@ export const CiExportInput = z.object({
   post_as: z.enum(['github_review', 'pr_comment', 'none']).default('github_review'),
   triggers: z.array(z.string()).default(['opened', 'synchronize', 'reopened']),
   base: z.string().default('main'),
+  /**
+   * The user's hand-edited workflow contents from the wizard's Preview step.
+   * Absent means "generate it" — the server never silently keeps a stale copy.
+   */
+  workflow: z.string().optional(),
 });
 export type CiExportInput = z.infer<typeof CiExportInput>;
 /** Caller-facing input type — `.default()` fields stay optional (web hooks). */
 export type CiExportInputBody = z.input<typeof CiExportInput>;
 
+// Declared before `CiInstallation`, which derives a status from its runs — a
+// `const` referenced before its initializer would throw at module load.
+//
+// `blocked` is NOT a failure: the review ran, found something at or above the
+// exported `ci_fail_on` severity, and deliberately exited non-zero to stop the
+// merge. It is kept distinct from `failed` (the runner or the artifact broke)
+// because collapsing the two would report the feature working as the feature
+// breaking — and distinct from `succeeded` because the GitHub check IS red.
+export const CiRunStatus = z.enum([
+  'succeeded',
+  'blocked',
+  'failed',
+  'no_findings',
+  'running',
+]);
+export type CiRunStatus = z.infer<typeof CiRunStatus>;
+
 /** A persisted CI installation (mirrors `ci_installations`). */
 export const CiInstallation = z.object({
   id: z.string(),
   agent_id: z.string(),
+  workspace_id: z.string(),
   repo: z.string(),
   target_type: CiTarget,
   installed_at: z.string(),
+  /** How the runner posts its result; travels to CI as a workflow env var. */
+  post_as: z.enum(['github_review', 'pr_comment', 'none']),
+  triggers: z.array(z.string()),
+  base: z.string(),
+  /**
+   * Pinned at first install and never re-derived from the agent's name: the
+   * runner hard-fails on more than one manifest and the commit path cannot
+   * delete, so a rename would otherwise brick the installation.
+   */
+  manifest_path: z.string(),
+  workflow_path: z.string(),
+  /** Monotonic export counter, incremented on every re-export. */
+  workflow_version: z.number().int(),
+  pr_url: z.string().nullable(),
+  last_ingest_at: z.string().nullable(),
+  /** The gate policy as it was written into the committed manifest. */
+  exported_ci_fail_on: CiFailOn.nullable(),
+  /** Derived, not stored: null ⇒ no run has arrived yet. */
+  status: CiRunStatus.nullable(),
+  last_activity_at: z.string().nullable(),
+  /** True when the agent's current `ci_fail_on` differs from the exported one. */
+  policy_drift: z.boolean(),
 });
 export type CiInstallation = z.infer<typeof CiInstallation>;
 
@@ -199,20 +313,29 @@ export const CiExport = z.object({
   installation: CiInstallation,
   files: z.array(CiFile),
   pr_url: z.string().nullable(),
+  repo: z.string(),
+  file_count: z.number().int(),
 });
 export type CiExport = z.infer<typeof CiExport>;
-
-export const CiRunStatus = z.enum(['succeeded', 'failed', 'no_findings', 'running']);
-export type CiRunStatus = z.infer<typeof CiRunStatus>;
 
 /** A CI run row (mirrors `ci_runs`) — ingested from GitHub Actions artifacts. */
 export const CiRun = z.object({
   id: z.string(),
   ci_installation_id: z.string().nullable(),
+  workspace_id: z.string(),
+  /** The `agent_runs` row this ingest created (`source='ci'`), when one exists. */
+  agent_run_id: z.string().nullable(),
+  /** GitHub Actions run id — the idempotency key for re-ingesting the same run. */
+  github_run_id: z.string(),
+  repo: z.string(),
   pr_number: z.number().int().nullable(),
+  pr_title: z.string().nullish(),
   ran_at: z.string().nullable(),
   status: z.string().nullable(),
   findings_count: z.number().int().nullable(),
+  critical: z.number().int().nullish(),
+  warning: z.number().int().nullish(),
+  suggestion: z.number().int().nullish(),
   cost_usd: z.number().nullable(),
   github_url: z.string().nullable(),
   source: z.string().nullable(),
@@ -220,6 +343,28 @@ export const CiRun = z.object({
   duration_s: z.number().nullish(),
 });
 export type CiRun = z.infer<typeof CiRun>;
+
+/** `GET /ci-runs` — the rows plus everything the filter chips need, in one trip. */
+export const CiRunsResponse = z.object({
+  runs: z.array(CiRun),
+  agents: z.array(z.object({ id: z.string(), name: z.string() })),
+  repos: z.array(z.string()),
+});
+export type CiRunsResponse = z.infer<typeof CiRunsResponse>;
+
+/**
+ * Outcome of a Refresh. Partial success is normal — one unreadable artifact
+ * must not mask the runs that ingested fine, so failures are itemised rather
+ * than collapsed into an error.
+ */
+export const CiIngestResult = z.object({
+  examined: z.number().int(),
+  ingested: z.number().int(),
+  skipped: z.number().int(),
+  already_known: z.number().int(),
+  failures: z.array(z.object({ github_run_id: z.string(), reason: z.string() })),
+});
+export type CiIngestResult = z.infer<typeof CiIngestResult>;
 
 /**
  * The artifact shape uploaded by the CI action (`devdigest-result.json`).

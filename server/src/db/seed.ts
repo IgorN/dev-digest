@@ -11,6 +11,7 @@ import {
 } from './seed-prompts.js';
 import { SEED_SKILLS, SKILL_LINKS } from './seed-skills.js';
 import { CONVENTION_FIXTURE_FILES } from './seed-conventions.js';
+import { SEED_EVAL_CASES, EVAL_CASE_AGENT_NAME } from './seed-eval-cases.js';
 
 /** Default provider/model for the built-in reviewer agents. */
 const DEFAULT_PROVIDER = 'openrouter' as const;
@@ -298,6 +299,52 @@ export async function seed(db: Db): Promise<{ workspaceId: string; userId: strin
     if (!existing) await db.insert(t.agents).values(a);
   }
 
+  // Backfill each seeded agent's version-1 config snapshot. Seeding inserts
+  // `agents` rows directly (bypassing `AgentsRepository.create`, the only
+  // normal path that calls `snapshotVersion(row, INITIAL_AGENT_VERSION)`), so
+  // without this a seeded agent has NO row in `agent_versions` at all — the
+  // Eval Dashboard's "Compare runs" system-prompt diff (which fetches both
+  // sides via `GET /agents/:id/versions/:version`) 404s for version 1 on
+  // every seeded agent. Mirrors `snapshotVersion`'s real shape (`skills: []`
+  // — skill LINKS never bump/touch version history, only config edits do, so
+  // a just-created agent's own v1 snapshot has none yet, exactly like this).
+  // `.onConflictDoNothing()` on the (agent_id, version) primary key keeps
+  // this idempotent across repeated `db:seed` runs.
+  //
+  // IMPORTANT: build `configJson` from the `seedAgents` LITERAL (`a.*`), never
+  // from a re-`select()`ed `agents` row. A dev/grader may run `pnpm db:seed`
+  // AFTER already editing a seeded agent's prompt via the UI — re-reading the
+  // (by-then-mutated) row would stamp the CURRENT edited config as "version
+  // 1", corrupting history (caught live: editing a prompt, saving as v2, then
+  // running this backfill re-selected the row and wrote v2's already-edited
+  // prompt into the v1 snapshot too, so the Compare-runs diff showed no
+  // change at all). The literal is the only source of the TRUE original.
+  for (const a of seedAgents) {
+    const [row] = await db
+      .select()
+      .from(t.agents)
+      .where(and(eq(t.agents.workspaceId, workspaceId), eq(t.agents.name, a.name)));
+    if (!row) continue;
+    await db
+      .insert(t.agentVersions)
+      .values({
+        agentId: row.id,
+        version: 1,
+        configJson: {
+          provider: a.provider,
+          model: a.model,
+          system_prompt: a.systemPrompt,
+          output_schema: a.outputSchema ?? null,
+          strategy: a.strategy ?? 'single-pass',
+          ci_fail_on: a.ciFailOn ?? 'critical',
+          repo_intel: a.repoIntel ?? true,
+          skills: [],
+          context_documents: [],
+        },
+      })
+      .onConflictDoNothing();
+  }
+
   // ---- skills catalog (L02) — idempotent by (workspace, name) ----
   // A skill is reusable text-only guidance injected into an agent's prompt.
   for (const sk of SEED_SKILLS) {
@@ -344,6 +391,43 @@ export async function seed(db: Db): Promise<{ workspaceId: string; userId: strin
         .insert(t.agentSkills)
         .values({ agentId: agent.id, skillId: skill.id, order: i })
         .onConflictDoNothing();
+    }
+  }
+
+  // ---- eval cases (L06) — idempotent by (workspace, owner_kind, owner_id, name) ----
+  // Large seed content lives in ./seed-eval-cases.ts (mirrors seed-prompts.ts /
+  // seed-skills.ts / seed-conventions.ts). Attached to the most fully-configured
+  // seeded agent (API Contract Reviewer — 5 linked skills, see SKILL_LINKS above).
+  const [evalCaseAgent] = await db
+    .select()
+    .from(t.agents)
+    .where(and(eq(t.agents.workspaceId, workspaceId), eq(t.agents.name, EVAL_CASE_AGENT_NAME)));
+  if (evalCaseAgent) {
+    for (const ec of SEED_EVAL_CASES) {
+      const [existing] = await db
+        .select()
+        .from(t.evalCases)
+        .where(
+          and(
+            eq(t.evalCases.workspaceId, workspaceId),
+            eq(t.evalCases.ownerKind, 'agent'),
+            eq(t.evalCases.ownerId, evalCaseAgent.id),
+            eq(t.evalCases.name, ec.name),
+          ),
+        );
+      if (!existing) {
+        await db.insert(t.evalCases).values({
+          workspaceId,
+          ownerKind: 'agent',
+          ownerId: evalCaseAgent.id,
+          name: ec.name,
+          inputDiff: ec.inputDiff,
+          inputFiles: ec.inputFiles,
+          inputMeta: ec.inputMeta,
+          expectedOutput: ec.expectedOutput,
+          notes: ec.notes ?? null,
+        });
+      }
     }
   }
 

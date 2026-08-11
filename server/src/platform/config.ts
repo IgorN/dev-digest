@@ -41,6 +41,13 @@ const EnvSchema = z.object({
   CONTEXT_ROOTS: z.preprocess((v) => (v === '' ? undefined : v), z.string().optional()),
   // Per-document UTF-8 byte cap for previewed/injected context markdown (AC-18).
   CONTEXT_DOC_MAX_BYTES: z.coerce.number().int().positive().default(65536),
+  // Export-to-CI: where the ncc-built agent-runner bundle is read from. A PATH,
+  // not a secret — the export copies every file it finds there verbatim into
+  // `.devdigest/runner/`. Unset → `<cwd>/../agent-runner/dist`.
+  DEVDIGEST_RUNNER_DIST_DIR: z.preprocess(
+    (v) => (v === '' ? undefined : v),
+    z.string().optional(),
+  ),
 });
 
 /** Default context-document root directory names (AC-3). */
@@ -74,6 +81,14 @@ export type AppConfig = {
   contextRoots: string[];
   /** Per-document UTF-8 byte cap for context markdown (preview + injection). */
   contextDocMaxBytes: number;
+  /**
+   * Absolute path to the ncc-built agent-runner output directory shipped inside
+   * an Export-to-CI pull request. Git-ignored, so "not built" is the default
+   * state of a fresh clone — the export fails loudly rather than half-shipping
+   * (AC-15/AC-15a). Overridable via DEVDIGEST_RUNNER_DIST_DIR (tests point it at
+   * a fixture directory).
+   */
+  runnerDistDir: string;
 };
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
@@ -81,6 +96,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   const cloneDirRaw =
     parsed.DEVDIGEST_CLONE_DIR ?? join(homedir(), '.devdigest', 'workspace');
   const cloneDir = isAbsolute(cloneDirRaw) ? cloneDirRaw : resolve(process.cwd(), cloneDirRaw);
+  const runnerDistRaw =
+    parsed.DEVDIGEST_RUNNER_DIST_DIR ?? resolve(process.cwd(), '../agent-runner/dist');
+  const runnerDistDir = isAbsolute(runnerDistRaw)
+    ? runnerDistRaw
+    : resolve(process.cwd(), runnerDistRaw);
   const contextRoots = (parsed.CONTEXT_ROOTS ?? '')
     .split(',')
     .map((s) => s.trim())
@@ -98,5 +118,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     repoIntelEnabled: parsed.REPO_INTEL_ENABLED !== 'false',
     contextRoots: contextRoots.length > 0 ? contextRoots : [...DEFAULT_CONTEXT_ROOTS],
     contextDocMaxBytes: parsed.CONTEXT_DOC_MAX_BYTES,
+    runnerDistDir,
   };
 }

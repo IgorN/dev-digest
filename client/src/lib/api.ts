@@ -18,7 +18,10 @@ export class ApiError extends Error {
   }
 }
 
-export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+/** Fetch + the shared error normalization, returning the RAW Response so both
+    the JSON client (`apiFetch`) and the binary one (`apiBlob`, used by the CI
+    zip download) go through exactly one error path. */
+async function apiRequest(path: string, init?: RequestInit): Promise<Response> {
   let res: Response;
   try {
     res = await fetch(`${API_BASE}${path}`, {
@@ -58,8 +61,23 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
     throw new ApiError(message, res.status, code, details);
   }
 
+  return res;
+}
+
+export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await apiRequest(path, init);
   if (res.status === 204) return undefined as T;
   return (await res.json()) as T;
+}
+
+/** POST that returns binary content (the CI export zip). Same base URL and same
+    ApiError normalization as `apiFetch`; the only difference is the body reader. */
+export async function apiBlob(path: string, body?: unknown): Promise<Blob> {
+  const res = await apiRequest(path, {
+    method: "POST",
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  return await res.blob();
 }
 
 export const api = {
@@ -71,4 +89,6 @@ export const api = {
   patch: <T>(path: string, body?: unknown) =>
     apiFetch<T>(path, { method: "PATCH", body: body ? JSON.stringify(body) : undefined }),
   del: <T>(path: string) => apiFetch<T>(path, { method: "DELETE" }),
+  /** Binary POST (returns a Blob) — the CI export zip is the only consumer. */
+  blob: (path: string, body?: unknown) => apiBlob(path, body),
 };

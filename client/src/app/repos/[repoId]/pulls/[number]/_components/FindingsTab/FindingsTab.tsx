@@ -7,7 +7,13 @@ import { RunHistory } from "../RunHistory/RunHistory";
 import { ReviewRunAccordion } from "../ReviewRunAccordion";
 import { SeverityFilter } from "../SeverityFilter";
 import { s } from "./styles";
-import type { FindingRecord, ReviewRecord, RunSummary, PrCommit } from "@devdigest/shared";
+import type {
+  FindingRecord,
+  ReviewRecord,
+  RunSummary,
+  PrCommit,
+  LatestMultiRunRef,
+} from "@devdigest/shared";
 import type { UseMutationResult } from "@tanstack/react-query";
 
 interface FindingsTabProps {
@@ -27,6 +33,11 @@ interface FindingsTabProps {
      FindingCard. Bump the nonce to re-trigger the same finding twice. */
   targetFindingId?: string | null;
   targetFindingNonce?: number;
+  /** This PR's most recent multi-run (server-resolved) — adds the timeline's
+     re-entry row when present (AC-21a). */
+  latestMultiRun?: LatestMultiRunRef | null;
+  /** Open that multi-run's result view; pure navigation, launches nothing. */
+  onOpenMultiRun?: (multiRunId: string) => void;
   onOpenTrace: (id: string) => void;
   onDelete: (id: string) => void;
   onRunDone: () => void;
@@ -45,6 +56,8 @@ export function FindingsTab({
   headSha,
   targetFindingId = null,
   targetFindingNonce = 0,
+  latestMultiRun = null,
+  onOpenMultiRun,
   onOpenTrace,
   onDelete,
   onRunDone,
@@ -159,7 +172,7 @@ export function FindingsTab({
         </div>
       )}
 
-      {((prRuns && prRuns.length > 0) || prCommits.length > 0) && (
+      {((prRuns && prRuns.length > 0) || prCommits.length > 0 || latestMultiRun) && (
         <div style={s.timelineSection}>
           <SectionLabel
             icon="Activity"
@@ -174,6 +187,8 @@ export function FindingsTab({
             onGoToReview={handleGoToReview}
             onDelete={handleDelete}
             findingsByRunId={findingsByRunId}
+            latestMultiRun={latestMultiRun}
+            onOpenMultiRun={onOpenMultiRun}
           />
         </div>
       )}

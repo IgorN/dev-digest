@@ -118,6 +118,12 @@ you — the raw exploration never enters your context. For a quick "where is X d
 what calls Y" lookup, the cheaper `investigator` is enough. Read only what the feature
 touches — never the whole repo.
 
+**Fan out early, in one batch — a late stall is expensive.** You block while sub-agents run,
+and a stall longer than ~5 minutes expires the prompt cache, forcing your *entire* accumulated
+prefix to be re-written at cache-write rates. The later it happens, the bigger the prefix and
+the higher the bill. So do all delegation in a single parallel batch near the start, while your
+context is still small; don't fan out again late to chase a detail you could read yourself.
+
 ## Read-When (gather grounding before you specify)
 
 Read only what the feature touches — for the package(s) where the work will land, not the

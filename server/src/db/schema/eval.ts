@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, integer, boolean, jsonb, timestamp, doublePrecision } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, integer, boolean, jsonb, timestamp, doublePrecision, index } from 'drizzle-orm/pg-core';
 import { workspaces } from './core';
 import { pullRequests } from './pulls';
 
@@ -19,20 +19,26 @@ export const evalCases = pgTable('eval_cases', {
   notes: text('notes'),
 });
 
-export const evalRuns = pgTable('eval_runs', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  caseId: uuid('case_id')
-    .notNull()
-    .references(() => evalCases.id, { onDelete: 'cascade' }),
-  ranAt: timestamp('ran_at', { withTimezone: true }).defaultNow().notNull(),
-  actualOutput: jsonb('actual_output'),
-  pass: boolean('pass'),
-  recall: doublePrecision('recall'),
-  precision: doublePrecision('precision'),
-  citationAccuracy: doublePrecision('citation_accuracy'),
-  durationMs: integer('duration_ms'),
-  costUsd: doublePrecision('cost_usd'),
-});
+export const evalRuns = pgTable(
+  'eval_runs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    caseId: uuid('case_id')
+      .notNull()
+      .references(() => evalCases.id, { onDelete: 'cascade' }),
+    runBatchId: uuid('run_batch_id').notNull(),
+    agentVersion: integer('agent_version').notNull(),
+    ranAt: timestamp('ran_at', { withTimezone: true }).defaultNow().notNull(),
+    actualOutput: jsonb('actual_output'),
+    pass: boolean('pass'),
+    recall: doublePrecision('recall'),
+    precision: doublePrecision('precision'),
+    citationAccuracy: doublePrecision('citation_accuracy'),
+    durationMs: integer('duration_ms'),
+    costUsd: doublePrecision('cost_usd'),
+  },
+  (t) => ({ runBatchIdx: index('eval_runs_run_batch_idx').on(t.runBatchId) }),
+);
 
 export const conformanceChecks = pgTable('conformance_checks', {
   id: uuid('id').primaryKey().defaultRandom(),

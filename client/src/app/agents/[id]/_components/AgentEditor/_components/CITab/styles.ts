@@ -1,0 +1,106 @@
+import type { CSSProperties } from "react";
+
+/** Co-located styles for the agent editor's CI tab.
+    Values taken verbatim from `design-src/screen_agents.jsx:130-159`. */
+export const s = {
+  wrap: { maxWidth: 720 } satisfies CSSProperties,
+  empty: { maxWidth: 600, textAlign: "center", padding: "40px 0" } satisfies CSSProperties,
+
+  header: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    marginBottom: 16,
+  } satisfies CSSProperties,
+  h2: { fontSize: 16, fontWeight: 700, margin: 0 } satisfies CSSProperties,
+  headerActions: { marginLeft: "auto", display: "flex", gap: 8 } satisfies CSSProperties,
+
+  failCard: {
+    display: "flex",
+    alignItems: "center",
+    gap: 14,
+    padding: "12px 14px",
+    borderRadius: 8,
+    border: "1px solid var(--border)",
+    background: "var(--bg-elevated)",
+    marginBottom: 16,
+  } satisfies CSSProperties,
+  failCopy: { minWidth: 0, flex: 1 } satisfies CSSProperties,
+  failTitle: { fontSize: 13, fontWeight: 600 } satisfies CSSProperties,
+  failDesc: {
+    fontSize: 11.5,
+    color: "var(--text-muted)",
+    marginTop: 2,
+  } satisfies CSSProperties,
+  segmented: {
+    display: "flex",
+    gap: 2,
+    background: "var(--bg-surface)",
+    border: "1px solid var(--border)",
+    borderRadius: 7,
+    padding: 2,
+    flexShrink: 0,
+  } satisfies CSSProperties,
+  segment: (active: boolean): CSSProperties => ({
+    padding: "5px 12px",
+    fontSize: 12,
+    fontWeight: 600,
+    borderRadius: 5,
+    border: "none",
+    cursor: "pointer",
+    fontFamily: "inherit",
+    background: active ? "var(--bg-elevated)" : "transparent",
+    color: active ? "var(--text-primary)" : "var(--text-muted)",
+  }),
+
+  row: {
+    padding: "13px 14px",
+    borderRadius: 8,
+    border: "1px solid var(--border)",
+    background: "var(--bg-elevated)",
+    marginBottom: 8,
+  } satisfies CSSProperties,
+  rowMain: { display: "flex", alignItems: "center", gap: 12 } satisfies CSSProperties,
+  rowRepo: { fontSize: 13, fontWeight: 600, flex: 1, minWidth: 0 } satisfies CSSProperties,
+  rowVersion: {
+    fontSize: 11.5,
+    color: "var(--text-muted)",
+    whiteSpace: "nowrap",
+  } satisfies CSSProperties,
+  rowTime: {
+    fontSize: 11.5,
+    color: "var(--text-muted)",
+    whiteSpace: "nowrap",
+  } satisfies CSSProperties,
+  drift: {
+    display: "flex",
+    alignItems: "flex-start",
+    gap: 8,
+    marginTop: 10,
+    padding: "8px 10px",
+    borderRadius: 6,
+    border: "1px solid var(--warn)",
+    background: "var(--warn-bg)",
+    fontSize: 11.5,
+    lineHeight: 1.45,
+    color: "var(--text-secondary)",
+  } satisfies CSSProperties,
+
+  addRepo: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    width: "100%",
+    padding: "12px 14px",
+    borderRadius: 8,
+    border: "1px dashed var(--border-strong)",
+    background: "transparent",
+    color: "var(--text-secondary)",
+    fontSize: 13,
+    fontWeight: 600,
+    cursor: "pointer",
+    fontFamily: "inherit",
+    marginTop: 2,
+  } satisfies CSSProperties,
+};
